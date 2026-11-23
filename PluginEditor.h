@@ -8,7 +8,7 @@
 #include "Syringe.h"
 #include "UiStyle.h"
 
-// One hardware unit per module page: title, family tag, live graph and syringe controls.
+// One section page: title, tag, live graph and syringe controls.
 class ModulePage : public juce::Component
 {
 public:
@@ -38,57 +38,60 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ModulePage)
 };
 
-// A single effect tile in the FX rack: big on/off state, click the card to open its page.
-class FxCard : public juce::Component, private juce::Timer
+// One effect in the FX rack: name, blurb, on/off pill and its own syringes.
+class FxRackRow : public juce::Component
 {
 public:
-    FxCard (VocalROIDZProcessor&, const char* paramId, juce::String title, juce::String blurb,
-            juce::Colour colour, std::function<void()> onOpen);
-    ~FxCard() override { stopTimer(); }
+    FxRackRow (VocalROIDZProcessor&, const modules::Module&, int number);
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    void mouseDown (const juce::MouseEvent&) override { if (onOpen) onOpen(); }
-    void mouseEnter (const juce::MouseEvent&) override { hover = true; repaint(); }
-    void mouseExit (const juce::MouseEvent&) override { hover = false; repaint(); }
+    bool powerChanged();
+
+private:
+    const modules::Module& meta;
+    int number = 1;
+    juce::Colour col;
+
+    juce::ToggleButton power;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> powerAttach;
+    std::vector<std::unique_ptr<SyringeControl>> controls;
+
+    juce::Rectangle<int> textArea, controlArea;
+    bool lastState = false;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FxRackRow)
+};
+
+// The FX rack: everything that is not one of the eight sections, in chain order.
+class FxRackPage : public juce::Component, private juce::Timer
+{
+public:
+    explicit FxRackPage (VocalROIDZProcessor&);
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
 
 private:
     void timerCallback() override;
+    void layoutRows();
 
-    juce::ToggleButton toggle;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attach;
-    juce::String titleText, blurbText;
-    juce::Colour col;
-    std::function<void()> onOpen;
-    bool hover = false, lastState = false;
+    juce::Rectangle<int> headArea;
+    juce::Component content;      // declared before the viewport so the viewport dies first
+    juce::Viewport viewport;
+    std::vector<std::unique_ptr<FxRackRow>> rows;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FxCard)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FxRackPage)
 };
 
-// The FX menu: every creative effect in one place, each with its own on/off toggle.
-class FxMenuPage : public juce::Component
-{
-public:
-    FxMenuPage (VocalROIDZProcessor&, std::function<void(int)> openPage);
-
-    void paint (juce::Graphics&) override;
-    void resized() override;
-
-private:
-    juce::Rectangle<int> headArea, gridArea;
-    std::vector<std::unique_ptr<FxCard>> cards;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FxMenuPage)
-};
-
-// A compact button font keeps the eighteen-module rail readable at any window height.
+// A compact button font keeps the nine-section rail readable at any window height.
 class RackLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
     {
-        return ui::font (juce::jlimit (9.0f, 13.0f, (float) buttonHeight * 0.54f), true);
+        return ui::font (juce::jlimit (10.0f, 14.0f, (float) buttonHeight * 0.46f), true);
     }
 };
 

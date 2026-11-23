@@ -172,8 +172,9 @@ public:
                     case 4:  y = std::tanh (x * 0.6f) + 0.25f * w * (x * x - 0.3f); break;           // Warm
                     default:                                                                        // Aggressive
                     {
-                        const float folded = std::abs (std::fmod (x + 1.0f, 4.0f) - 2.0f) - 1.0f;
-                        y = folded;
+                        // Triangle fold that passes through zero with the same polarity as the
+                        // input; inverting here would cancel the dry signal in the parallel mix.
+                        y = 1.0f - std::abs (std::fmod (x + 1.0f, 4.0f) - 2.0f);
                         break;
                     }
                 }

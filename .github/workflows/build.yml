@@ -38,9 +38,9 @@ jobs:
           2. Rescan plugins in your DAW.
           3. Insert 'Vocal ROIDZ' by BKWDZ on a vocal track.
 
-          In the plugin, pick a preset from the header and use the module rail
-          on the left to move between the 18 modules. The last rail entry, FX,
-          is the effects menu with an on/off switch for every creative effect.
+          In the plugin, pick a preset from the header and use the nine-section
+          rail on the left: Autotune, Pitch, EQ, Compressor, Saturation, Reverb,
+          Limit, Gate and FX. The FX page holds every remaining effect.
           "@ | Out-File -Encoding ASCII INSTALL.txt
 
           Compress-Archive -Path $vst3.FullName, INSTALL.txt -DestinationPath 'VocalROIDZ-Windows-VST3.zip'
@@ -54,17 +54,18 @@ jobs:
       - name: Publish release asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.1.0
-          name: VOCAL ROIDS 2.1.0 - Windows VST3
+          tag_name: v2.2.0
+          name: VOCAL ROIDS 2.2.0 - Windows VST3
           body: |
             Windows VST3 build of VOCAL ROIDS.
 
             1. Unzip and copy the `Vocal ROIDZ.vst3` folder into `C:\Program Files\Common Files\VST3`.
             2. Rescan plugins in your DAW and insert **Vocal ROIDZ** by BKWDZ.
 
-            2.1.0: autotune now snaps inside the singer's own octave with formant preserve on by
-            default, creative pitch (pitch/formant/octave) moved to its own Pitch FX module, new
-            Regular Stutter, an FX rack page with a switch per effect, a draggable EQ graph and a
-            compressor graph with proper metering.
+            2.2.0: the rack is now nine sections - Autotune, Pitch, EQ, Compressor, Saturation,
+            Reverb, Limit, Gate and FX - with harmony, doubles, de-esser, cleanup, stutters, chop,
+            delay and stereo folded into one scrollable FX rack. Every factory preset was rebuilt
+            and level-matched, and the autotune snaps inside the singer's own octave with formant
+            preserve on by default.
           files: VocalROIDZ-Windows-VST3.zip
           fail_on_unmatched_files: true

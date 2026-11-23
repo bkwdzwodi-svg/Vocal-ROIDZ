@@ -114,7 +114,7 @@ void ModulePage::paint (juce::Graphics& g)
     g.setColour (ui::panel);
     g.fillRoundedRectangle (b, 12.0f);
 
-    // A wash of the module's own colour, so each page reads differently at a glance.
+    // A wash of the section's own colour, so each page reads differently at a glance.
     g.setGradientFill (juce::ColourGradient (col.withAlpha (0.10f), b.getX(), b.getY(),
                                              col.withAlpha (0.0f), b.getX(), b.getY() + b.getHeight() * 0.55f, false));
     g.fillRoundedRectangle (b, 12.0f);
@@ -130,28 +130,27 @@ void ModulePage::paint (juce::Graphics& g)
 
     g.setFont (ui::font (11.0f, true));
     g.setColour (col.withAlpha (0.8f));
-    g.drawText ("MODULE " + juce::String (number).paddedLeft ('0', 2),
+    g.drawText ("SECTION " + juce::String (number).paddedLeft ('0', 2),
                 title.withHeight (16.0f).toNearestInt(), juce::Justification::bottomLeft, false);
 
-    // Family chip.
-    const juce::String family (meta.family);
+    // Tag chip.
+    const juce::String tag (meta.tag);
     const auto chipFont = ui::font (9.0f, true);
-    const float chipW = juce::jmax (44.0f, ui::textWidth (chipFont, family) + 18.0f);
-    auto chip = juce::Rectangle<float> (title.getRight() - title.getWidth(), title.getY() + 1.0f, chipW, 16.0f);
-    chip.setX (title.getX() + 104.0f);
+    const float chipW = juce::jmax (44.0f, ui::textWidth (chipFont, tag) + 18.0f);
+    auto chip = juce::Rectangle<float> (title.getX() + 104.0f, title.getY() + 1.0f, chipW, 16.0f);
     g.setColour (col.withAlpha (0.12f));
     g.fillRoundedRectangle (chip, 8.0f);
     g.setFont (chipFont);
     g.setColour (col.withAlpha (0.9f));
-    g.drawText (family, chip.toNearestInt(), juce::Justification::centred, false);
+    g.drawText (tag, chip.toNearestInt(), juce::Justification::centred, false);
 
-    g.setFont (ui::font (24.0f, true));
+    g.setFont (ui::font (26.0f, true));
     g.setColour (ui::text);
     g.drawText (meta.name, title.withTrimmedTop (12.0f).toNearestInt(), juce::Justification::topLeft, false);
 
     g.setFont (ui::font (12.0f));
     g.setColour (ui::dim);
-    g.drawText (meta.subtitle, title.translated (0.0f, 34.0f).toNearestInt(),
+    g.drawText (meta.subtitle, title.translated (0.0f, 36.0f).toNearestInt(),
                 juce::Justification::topLeft, false);
 }
 
@@ -159,7 +158,7 @@ void ModulePage::resized()
 {
     auto area = getLocalBounds().reduced (18);
 
-    titleArea = area.removeFromTop (54);
+    titleArea = area.removeFromTop (58);
 
     const int switchCount = (int) switches.size();
     const int perSwitch = 158;
@@ -204,166 +203,200 @@ void ModulePage::resized()
 }
 
 // =======================================================================================
-// FxCard
+// FxRackRow
 // =======================================================================================
-FxCard::FxCard (VocalROIDZProcessor& p, const char* paramId, juce::String title, juce::String blurb,
-                juce::Colour colour, std::function<void()> open)
-    : titleText (std::move (title)), blurbText (std::move (blurb)), col (colour), onOpen (std::move (open))
+FxRackRow::FxRackRow (VocalROIDZProcessor& p, const modules::Module& m, int index)
+    : meta (m), number (index + 1), col (juce::Colour (m.colour))
 {
-    toggle.setAlpha (0.0f);                 // the card paints its own switch, the button stays clickable
-    addAndMakeVisible (toggle);
-    attach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, paramId, toggle);
-    lastState = toggle.getToggleState();
+    power.setButtonText ("POWER");
+    power.setAlpha (0.0f);                 // the row paints its own switch, the button stays clickable
+    addAndMakeVisible (power);
+    powerAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, meta.powerId, power);
+    lastState = power.getToggleState();
 
-    setMouseCursor (juce::MouseCursor::PointingHandCursor);
-    startTimerHz (10);
+    for (const auto& c : meta.controls)
+    {
+        auto s = std::make_unique<SyringeControl> (p.apvts, c.id, col, juce::String (c.label));
+        addAndMakeVisible (*s);
+        controls.push_back (std::move (s));
+    }
+
+    setMouseCursor (juce::MouseCursor::NormalCursor);
 }
 
-void FxCard::paint (juce::Graphics& g)
+bool FxRackRow::powerChanged()
 {
+    const bool state = power.getToggleState();
+
+    if (state == lastState)
+        return false;
+
+    lastState = state;
+    repaint();
+    return true;
+}
+
+void FxRackRow::paint (juce::Graphics& g)
+{
+    const bool on = power.getToggleState();
     auto b = getLocalBounds().toFloat().reduced (1.0f);
 
     g.setColour (ui::panelAlt);
     g.fillRoundedRectangle (b, 10.0f);
 
-    if (toggle.getToggleState())
+    if (on)
     {
-        g.setGradientFill (juce::ColourGradient (col.withAlpha (0.18f), b.getX(), b.getY(),
-                                                 col.withAlpha (0.02f), b.getX(), b.getBottom(), false));
+        g.setGradientFill (juce::ColourGradient (col.withAlpha (0.13f), b.getX(), b.getY(),
+                                                 col.withAlpha (0.01f), b.getRight(), b.getY(), false));
         g.fillRoundedRectangle (b, 10.0f);
     }
 
-    g.setColour (hover ? col.withAlpha (0.75f) : ui::line);
+    g.setColour (on ? col.withAlpha (0.32f) : ui::line);
     g.drawRoundedRectangle (b.reduced (0.5f), 10.0f, 1.0f);
 
-    g.setColour (col.withAlpha (toggle.getToggleState() ? 0.9f : 0.25f));
+    g.setColour (col.withAlpha (on ? 0.85f : 0.22f));
     g.fillRoundedRectangle (b.getX() + 1.0f, b.getY() + 12.0f, 3.0f, b.getHeight() - 24.0f, 1.5f);
 
-    auto text = getLocalBounds().reduced (16, 14);
-
-    g.setFont (ui::font (13.0f, true));
-    g.setColour (ui::text);
-    g.drawText (titleText, text.removeFromTop (18), juce::Justification::topLeft, false);
-
-    text.removeFromTop (3);
-    g.setFont (ui::font (11.0f));
-    g.setColour (ui::dim);
-    g.drawFittedText (blurbText, text.removeFromTop (30), juce::Justification::topLeft, 2);
+    auto text = textArea;
 
     g.setFont (ui::font (9.0f, true));
-    g.setColour (col.withAlpha (hover ? 1.0f : 0.55f));
-    g.drawText ("OPEN  >", getLocalBounds().reduced (16, 12).removeFromBottom (14),
-                juce::Justification::bottomLeft, false);
+    g.setColour (col.withAlpha (0.7f));
+    g.drawText ("FX " + juce::String (number).paddedLeft ('0', 2), text.removeFromTop (13),
+                juce::Justification::topLeft, false);
 
-    // Switch pill.
-    const auto pill = getLocalBounds().reduced (14).removeFromRight (72).withSizeKeepingCentre (72, 28).toFloat();
-    const bool on = toggle.getToggleState();
+    g.setFont (ui::font (14.5f, true));
+    g.setColour (ui::text.withAlpha (on ? 1.0f : 0.75f));
+    g.drawText (meta.name, text.removeFromTop (20), juce::Justification::topLeft, false);
 
+    text.removeFromTop (2);
+    g.setFont (ui::font (10.5f));
+    g.setColour (ui::dim);
+    g.drawFittedText (meta.subtitle, text.removeFromTop (28), juce::Justification::topLeft, 2);
+
+    // Switch pill over the (invisible) toggle.
+    const auto pill = power.getBounds().toFloat();
     g.setColour (on ? col.withAlpha (0.9f) : juce::Colours::white.withAlpha (0.07f));
-    g.fillRoundedRectangle (pill, 14.0f);
+    g.fillRoundedRectangle (pill, pill.getHeight() * 0.5f);
     g.setColour (on ? ui::bg : ui::dim);
     g.setFont (ui::font (10.0f, true));
     g.drawText (on ? "ON" : "OFF", pill.toNearestInt(), juce::Justification::centred, false);
 }
 
-void FxCard::resized()
+void FxRackRow::resized()
 {
-    toggle.setBounds (getLocalBounds().reduced (14).removeFromRight (72).withSizeKeepingCentre (72, 28));
-}
+    auto inner = getLocalBounds().reduced (16, 12);
 
-void FxCard::timerCallback()
-{
-    if (toggle.getToggleState() != lastState)
-    {
-        lastState = toggle.getToggleState();
-        repaint();
-    }
+    auto left = inner.removeFromLeft (214);
+    inner.removeFromLeft (18);
+    controlArea = inner;
+
+    power.setBounds (left.getX(), left.getBottom() - 30, 86, 26);
+
+    const int n = juce::jmax (1, (int) controls.size());
+    const int cellW = controlArea.getWidth() / n;
+
+    for (int i = 0; i < n; ++i)
+        controls[(size_t) i]->setBounds (controlArea.getX() + i * cellW, controlArea.getY(), cellW, controlArea.getHeight());
 }
 
 // =======================================================================================
-// FxMenuPage
+// FxRackPage
 // =======================================================================================
-FxMenuPage::FxMenuPage (VocalROIDZProcessor& p, std::function<void(int)> openPage)
+FxRackPage::FxRackPage (VocalROIDZProcessor& p)
 {
-    struct Entry
-    {
-        const char* id;
-        const char* name;
-        const char* blurb;
-        juce::uint32 colour;
-        const char* powerId;
-    };
+    const auto& list = modules::fx();
 
-    static const Entry entries[] =
+    for (int i = 0; i < (int) list.size(); ++i)
     {
-        { ids::pitchFxOn, "PITCH FX", "Pitch up and down, formants, octaves", 0xff2ec4ff, ids::pitchFxOn },
-        { ids::harmOn, "HARMONY ENGINE", "Thirds, fifths and octave stacks", 0xffc65cff, ids::harmOn },
-        { ids::dblOn, "VOCAL DOUBLER", "Drifting doubles with human movement", 0xffc65cff, ids::dblOn },
-        { ids::rstutOn, "REGULAR STUTTER", "Clean slices repeated on a timer", 0xffff8d1f, ids::rstutOn },
-        { ids::stutOn, "HYPER STUTTER", "Slices, reverse, randomise, freeze", 0xffff8d1f, ids::stutOn },
-        { ids::chopOn, "CHOP-N-SCREW", "Slowdowns, phrase repeats, tape drift", 0xffff8d1f, ids::chopOn },
-        { ids::fxOn, "CREATIVE FX LAB", "Reverse, stops, robot, bit crush", 0xffc65cff, ids::fxOn },
-        { ids::dlyOn, "DELAY LAB", "Analog, tape, ping-pong, ducking", 0xffc65cff, ids::dlyOn },
-        { ids::revOn, "REVERB SPACE", "Rooms, plates, halls and cathedrals", 0xffc65cff, ids::revOn },
-    };
-
-    for (const auto& e : entries)
-    {
-        const int page = modules::indexOf (e.powerId);
-        auto card = std::make_unique<FxCard> (p, e.id, e.name, e.blurb, juce::Colour (e.colour),
-                                              [openPage, page] { if (openPage) openPage (page); });
-        addAndMakeVisible (*card);
-        cards.push_back (std::move (card));
+        auto row = std::make_unique<FxRackRow> (p, list[(size_t) i], i);
+        content.addAndMakeVisible (*row);
+        rows.push_back (std::move (row));
     }
+
+    viewport.setViewedComponent (&content, false);
+    viewport.setScrollBarsShown (true, false);
+    viewport.setScrollBarThickness (10);
+    addAndMakeVisible (viewport);
+
+    startTimerHz (8);
 }
 
-void FxMenuPage::paint (juce::Graphics& g)
+void FxRackPage::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat();
     g.setColour (ui::panel);
     g.fillRoundedRectangle (b, 12.0f);
+    g.setGradientFill (juce::ColourGradient (ui::gold.withAlpha (0.09f), b.getX(), b.getY(),
+                                             ui::gold.withAlpha (0.0f), b.getX(), b.getY() + b.getHeight() * 0.4f, false));
+    g.fillRoundedRectangle (b, 12.0f);
     g.setColour (ui::line);
     g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
 
+    g.setColour (ui::gold.withAlpha (0.85f));
+    g.fillRoundedRectangle (b.getX() + 1.0f, b.getY() + 14.0f, 3.0f, b.getHeight() - 28.0f, 1.5f);
+
+    auto head = headArea.toFloat();
+
     g.setFont (ui::font (11.0f, true));
     g.setColour (ui::gold.withAlpha (0.8f));
-    g.drawText ("FX RACK", headArea.toFloat().withHeight (16.0f), juce::Justification::bottomLeft, false);
+    g.drawText ("SECTION 09", head.removeFromTop (16.0f), juce::Justification::bottomLeft, false);
 
     g.setFont (ui::font (26.0f, true));
     g.setColour (ui::text);
-    g.drawText ("EFFECTS MENU", headArea.toFloat().withTrimmedTop (12.0f).withHeight (34.0f),
-                juce::Justification::topLeft, false);
+    g.drawText ("FX RACK", head.removeFromTop (32.0f), juce::Justification::topLeft, false);
 
     g.setFont (ui::font (12.0f));
     g.setColour (ui::dim);
-    g.drawText ("Toggle any creative effect here, or open its card for the full controls.",
-                headArea.toFloat().translated (0.0f, 40.0f).withHeight (18.0f),
-                juce::Justification::topLeft, false);
+    g.drawText ("Every other effect in the chain, each with its own switch and controls.",
+                head.removeFromTop (18.0f), juce::Justification::topLeft, false);
+
+    // Count chip on the right of the header.
+    const auto chipFont = ui::font (10.0f, true);
+    const juce::String count (juce::String ((int) rows.size()) + " EFFECTS");
+    const float chipW = ui::textWidth (chipFont, count) + 22.0f;
+    auto chip = juce::Rectangle<float> (b.getRight() - 20.0f - chipW, headArea.getY() + 6.0f, chipW, 22.0f);
+    g.setColour (ui::gold.withAlpha (0.12f));
+    g.fillRoundedRectangle (chip, 11.0f);
+    g.setFont (chipFont);
+    g.setColour (ui::gold.withAlpha (0.9f));
+    g.drawText (count, chip.toNearestInt(), juce::Justification::centred, false);
 }
 
-void FxMenuPage::resized()
+void FxRackPage::resized()
 {
     auto area = getLocalBounds().reduced (18);
-    headArea = area.removeFromTop (64);
-    area.removeFromTop (12);
-    gridArea = area;
+    headArea = area.removeFromTop (70);
+    area.removeFromTop (6);
+    viewport.setBounds (area);
 
-    const int cols = 3;
-    const int rows = juce::jmax (1, ((int) cards.size() + cols - 1) / cols);
-    const int gap = 10;
-    const int cellW = (gridArea.getWidth() - gap * (cols - 1)) / cols;
-    const int cellH = (gridArea.getHeight() - gap * (rows - 1)) / rows;
+    layoutRows();
+}
 
-    int i = 0;
+void FxRackPage::layoutRows()
+{
+    constexpr int rowH = 146;
+    constexpr int gap = 8;
 
-    for (auto& c : cards)
+    int total = 0;
+    for (size_t i = 0; i < rows.size(); ++i)
+        total += rowH + gap;
+
+    content.setSize (juce::jmax (420, viewport.getMaximumVisibleWidth()), juce::jmax (total, viewport.getHeight()));
+
+    int y = 0;
+
+    for (auto& r : rows)
     {
-        const int r = i / cols;
-        const int colIndex = i % cols;
-        c->setBounds (gridArea.getX() + colIndex * (cellW + gap),
-                      gridArea.getY() + r * (cellH + gap), cellW, cellH);
-        ++i;
+        r->setBounds (0, y, content.getWidth(), rowH);
+        y += rowH + gap;
     }
+}
+
+void FxRackPage::timerCallback()
+{
+    for (auto& r : rows)
+        if (r->powerChanged())
+            repaint();
 }
 
 // =======================================================================================
@@ -388,8 +421,11 @@ VocalROIDZEditor::VocalROIDZEditor (VocalROIDZProcessor& p)
     laf.setColour (juce::TextButton::buttonColourId, ui::panelAlt);
     laf.setColour (juce::TextButton::textColourOffId, ui::text);
     laf.setColour (juce::TextButton::textColourOnId, ui::bg);
+    laf.setColour (juce::ScrollBar::thumbColourId, ui::line.brighter (0.45f));
+    laf.setColour (juce::ScrollBar::trackColourId, juce::Colours::transparentBlack);
     setLookAndFeel (&laf);
 
+    // The eight section pages.
     const auto& list = modules::all();
 
     for (int i = 0; i < (int) list.size(); ++i)
@@ -410,15 +446,15 @@ VocalROIDZEditor::VocalROIDZEditor (VocalROIDZProcessor& p)
         tabs.push_back (std::move (tab));
     }
 
-    // The FX rack sits at the end of the rail: one toggle per creative effect.
-    auto fxPage = std::make_unique<FxMenuPage> (proc, [this] (int index) { showPage (index); });
+    // Section nine: the FX rack.
+    auto fxPage = std::make_unique<FxRackPage> (proc);
     addChildComponent (*fxPage);
     pages.push_back (std::move (fxPage));
-    pageColours.push_back (0xffffc93c);
+    pageColours.push_back (ui::gold.getARGB());
 
-    auto fxTab = std::make_unique<juce::TextButton> ("FX   EFFECTS RACK");
+    auto fxTab = std::make_unique<juce::TextButton> ("09   FX RACK");
     fxTab->setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    fxTab->setColour (juce::TextButton::textColourOffId, ui::gold.withAlpha (0.8f));
+    fxTab->setColour (juce::TextButton::textColourOffId, ui::gold.withAlpha (0.75f));
     fxTab->setColour (juce::TextButton::textColourOnId, ui::gold);
     fxTab->onClick = [this, count = (int) list.size()] { showPage (count); };
     addAndMakeVisible (*fxTab);
@@ -449,10 +485,10 @@ VocalROIDZEditor::VocalROIDZEditor (VocalROIDZProcessor& p)
         }
         else if (id >= 1)
         {
-            const auto& list = presets::factory();
+            const auto& factory = presets::factory();
             const int idx = id - 1;
 
-            if (idx < (int) list.size())
+            if (idx < (int) factory.size())
             {
                 proc.setCurrentProgram (idx);
                 shownProgram = idx;
@@ -651,12 +687,12 @@ void VocalROIDZEditor::paint (juce::Graphics& g)
 
     g.setFont (ui::font (9.0f, true));
     g.setColour (ui::dim.withAlpha (0.8f));
-    g.drawText ("MODULES", railArea.reduced (18, 0).removeFromTop (26).translated (0, 4),
+    g.drawText ("SECTIONS", railArea.reduced (18, 0).removeFromTop (26).translated (0, 4),
                 juce::Justification::topLeft, false);
 
     g.setFont (ui::font (9.0f));
     g.setColour (ui::dim.withAlpha (0.6f));
-    g.drawText ("v2.1  //  VST3", railArea.reduced (18, 12).removeFromBottom (18),
+    g.drawText ("v2.2  //  VST3", railArea.reduced (18, 12).removeFromBottom (18),
                 juce::Justification::bottomLeft, false);
 }
 
@@ -683,10 +719,13 @@ void VocalROIDZEditor::resized()
     auto rail = railArea.reduced (10, 34);
     rail.removeFromTop (6);
 
-    const int tabHeight = juce::jlimit (20, 38, rail.getHeight() / juce::jmax (1, (int) tabs.size()));
+    const int tabHeight = juce::jlimit (22, 46, rail.getHeight() / juce::jmax (1, (int) tabs.size()));
 
     for (auto& tab : tabs)
-        tab->setBounds (rail.removeFromTop (tabHeight).reduced (0, 1));
+    {
+        tab->setBounds (rail.removeFromTop (tabHeight).reduced (0, 2));
+        rail.removeFromTop (2);
+    }
 
     auto pageBounds = pageArea.reduced (14, 12);
 
