@@ -3,8 +3,9 @@
 #include <cmath>
 
 // ---------------------------------------------------------------------------------------
-// VocalCompressor: soft-knee, stereo-linked, with the four classic detector feels and a
-// parallel mix. Returns the peak gain reduction so the GUI meter is honest.
+// VocalCompressor: soft-knee, stereo-linked, with a peak+RMS program-dependent detector,
+// smoothed gain and the four classic feels. Returns the peak gain reduction so the GUI
+// meter is honest.
 // ---------------------------------------------------------------------------------------
 class VocalCompressor
 {
@@ -18,6 +19,7 @@ public:
     void reset()
     {
         env = 0.0f;
+        rms = 0.0f;
         lastReduction = 0.0f;
         gainSmoothed = 1.0f;
     }
@@ -42,6 +44,10 @@ public:
         const float relSec = juce::jmax (0.0005f, releaseMs * 0.001f);
         attackCoeff  = std::exp (-1.0f / (float) (atkSec * fs));
         releaseCoeff = std::exp (-1.0f / (float) (relSec * fs));
+
+        // A short RMS window feeds the body of the signal, so the detector reacts to level
+        // instead of individual waveform peaks (much cleaner on a voice).
+        rmsCoeff = std::exp (-1.0f / (float) (0.010 * fs));
     }
 
     float process (juce::AudioBuffer<float>& buffer, float mix, int model)
@@ -51,17 +57,30 @@ public:
         const float m = juce::jlimit (0.0f, 1.0f, mix);
         float maxReduction = 0.0f;
 
+        // Smoothing the applied gain is what separates a clean compressor from a gritty one.
+        const float gainSmooth = 1.0f - std::exp (-1.0f / (float) (0.004 * fs));
+
         for (int i = 0; i < n; ++i)
         {
-            float peak = 0.0f;
+            float peak = 0.0f, sumSq = 0.0f;
 
             for (int c = 0; c < ch; ++c)
-                peak = juce::jmax (peak, std::abs (buffer.getSample (c, i)));
+            {
+                const float x = buffer.getSample (c, i);
+                peak = juce::jmax (peak, std::abs (x));
+                sumSq += x * x;
+            }
+
+            rms = rmsCoeff * rms + (1.0f - rmsCoeff) * (sumSq / (float) juce::jmax (1, ch));
+            const float rmsLevel = std::sqrt (juce::jmax (0.0f, rms));
 
             const float coeff = peak > env ? attackCoeff : releaseCoeff;
             env = coeff * env + (1.0f - coeff) * peak;
 
-            const float envDb = juce::Decibels::gainToDecibels (env, -120.0f);
+            // Peak catches the transient, RMS holds the body: together they read like a
+            // program-dependent analogue detector rather than a hard peak limiter.
+            const float detect = juce::jmax (env, rmsLevel * 1.15f);
+            const float envDb = juce::Decibels::gainToDecibels (detect, -120.0f);
             const float over = envDb - threshold;
             float reductionDb = 0.0f;
 
@@ -80,20 +99,21 @@ public:
 
             maxReduction = juce::jmax (maxReduction, reductionDb);
 
-            float gain = juce::Decibels::decibelsToGain (-reductionDb);
-            gain = 1.0f + (gain - 1.0f) * m;
+            const float targetGain = juce::Decibels::decibelsToGain (-reductionDb);
+            gainSmoothed += (targetGain - gainSmoothed) * gainSmooth;
 
             for (int c = 0; c < ch; ++c)
             {
-                float x = buffer.getSample (c, i) * gain;
+                const float dry = buffer.getSample (c, i);
+                float wet = dry * gainSmoothed;
 
-                // A little detector colour on the aggressive models.
+                // A little detector colour on the aggressive models, wet path only.
                 if (model == 1)
-                    x = std::tanh (x * 1.15f) / 1.15f;
+                    wet = std::tanh (wet * 1.08f) / 1.08f;
                 else if (model == 3)
-                    x = std::tanh (x * 1.3f) / 1.3f;
+                    wet = std::tanh (wet * 1.16f) / 1.16f;
 
-                buffer.setSample (c, i, x);
+                buffer.setSample (c, i, dry * (1.0f - m) + wet * m);
             }
         }
 
@@ -106,8 +126,8 @@ public:
 private:
     double fs = 44100.0;
     float threshold = -20.0f, ratioValue = 3.5f, knee = 8.0f;
-    float attackCoeff = 0.0f, releaseCoeff = 0.0f;
-    float env = 0.0f, lastReduction = 0.0f, gainSmoothed = 1.0f;
+    float attackCoeff = 0.0f, releaseCoeff = 0.0f, rmsCoeff = 0.0f;
+    float env = 0.0f, rms = 0.0f, lastReduction = 0.0f, gainSmoothed = 1.0f;
 };
 
 // ---------------------------------------------------------------------------------------

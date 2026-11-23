@@ -45,8 +45,10 @@ void VocalROIDZProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     chopScrew.prepare (sampleRate, 2);
     stutter.prepare (sampleRate, 2);
     doubler.prepare (spec);
+    convolver.prepare (spec);
+    cassette.prepare (spec);
+    djSpin.prepare (sampleRate, 2);
     imager.prepare (spec);
-    creative.prepare (spec);
     delayLab.prepare (spec);
     reverbSpace.prepare (spec);
     masterFinish.prepare (spec);
@@ -155,8 +157,6 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         s.retune = param (ids::tuneRetune);
         s.humanize = param (ids::tuneHumanize);
         s.amount = param (ids::tuneAmount);
-        s.hard = isOn (ids::tuneHard);
-        s.formant = isOn (ids::tuneFormant);
 
         tuner.process (buffer, s);
 
@@ -216,6 +216,7 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         eq.process (buffer, param (ids::eqHpf), param (ids::eqLpf),
                     param (ids::eqLow), param (ids::eqLowFreq),
                     param (ids::eqMid), param (ids::eqMidFreq), param (ids::eqMidQ),
+                    param (ids::eqMid2), param (ids::eqMid2Freq), param (ids::eqMid2Q),
                     param (ids::eqHigh), param (ids::eqHighFreq), param (ids::eqAir));
 
     // ---------------------------------------------------------------- 04 Compressor X
@@ -267,15 +268,25 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         doubler.process (buffer, param (ids::dblAmount), param (ids::dblWidth),
                          param (ids::dblHuman), param (ids::dblPitch));
 
+    // ---------------------------------------------------------------- 17 Convolver
+    if (isOn (ids::convOn))
+        convolver.process (buffer, (int) param (ids::convAlgo), param (ids::convPredelay),
+                           param (ids::convTone), param (ids::convWidth), param (ids::convMix));
+
+    // ---------------------------------------------------------------- 17b Cassette
+    if (isOn (ids::casOn))
+        cassette.process (buffer, param (ids::casDrive), param (ids::casWow), param (ids::casTone),
+                          param (ids::casHiss), param (ids::casMix));
+
+    // ---------------------------------------------------------------- 17c DJ Spin
+    if (isOn (ids::spinOn))
+        djSpin.process (buffer, param (ids::spinRate), param (ids::spinLength),
+                        param (ids::spinDepth), param (ids::spinMix));
+
     // ---------------------------------------------------------------- 14 Stereo Imager
     if (isOn (ids::stereoOn))
         imager.process (buffer, param (ids::stereoWidth), param (ids::stereoBass),
                         param (ids::stereoBalance));
-
-    // ---------------------------------------------------------------- 17 Creative FX Lab
-    if (isOn (ids::fxOn))
-        creative.process (buffer, (int) param (ids::fxType), param (ids::fxAmount),
-                          param (ids::fxTone), param (ids::fxMix));
 
     // ---------------------------------------------------------------- 10 Delay Lab
     if (isOn (ids::dlyOn))

@@ -11,7 +11,7 @@ namespace modules
     {
         spectrum, pitch, compressor, gate, harmonics, stereo,
         decay, echo, slice, speed, sibilance, cleanup, fx, loudness,
-        pitchfx, stutter
+        pitchfx, stutter, convolution, cassette, spin
     };
 
     struct Control { const char* id; const char* label; };
@@ -24,7 +24,7 @@ namespace modules
         const char* powerId;
         juce::uint32 colour;
         ScopeKind scope;
-        std::vector<Control> switches;  // extra on/off switches, e.g. hard tune, formant preserve
+        std::vector<Control> switches;  // extra on/off switches beside POWER
         std::vector<Control> controls;
     };
 
@@ -33,9 +33,9 @@ namespace modules
     {
         static const std::vector<Module> list =
         {
-            { "AUTOTUNE", "Scale-locked correction, tone untouched", "PITCH", ids::tuneOn,
+            { "AUTOTUNE", "Classic hard tune, always snapped, tone untouched", "PITCH", ids::tuneOn,
               0xff30e6ff, ScopeKind::pitch,
-              { { ids::tuneHard, "HARD TUNE" }, { ids::tuneFormant, "FORMANT PRESERVE" } },
+              {},
               { { ids::tuneKey, "KEY" }, { ids::tuneScale, "SCALE" }, { ids::tuneRetune, "RETUNE" },
                 { ids::tuneHumanize, "HUMANIZE" }, { ids::tuneAmount, "CORRECTION" } } },
 
@@ -45,13 +45,14 @@ namespace modules
               { { ids::pitchFxSemis, "PITCH" }, { ids::pitchFxFormant, "FORMANT SHIFT" },
                 { ids::pitchFxMix, "MIX" } } },
 
-            { "EQ", "Draggable bands, bell Q and air shelf", "TONE", ids::eqOn,
+            { "EQ", "Seven bands, dual bells, live spectrum and precise drag", "TONE", ids::eqOn,
               0xff4fd8ff, ScopeKind::spectrum,
               {},
               { { ids::eqHpf, "HIGH PASS" }, { ids::eqLpf, "LOW PASS" }, { ids::eqLow, "LOW SHELF" },
-                { ids::eqLowFreq, "LOW FREQ" }, { ids::eqMid, "MID BAND" }, { ids::eqMidFreq, "MID FREQ" },
-                { ids::eqMidQ, "MID Q" }, { ids::eqHigh, "HIGH SHELF" }, { ids::eqHighFreq, "HIGH FREQ" },
-                { ids::eqAir, "AIR" } } },
+                { ids::eqLowFreq, "LOW FREQ" }, { ids::eqMid, "MID LOW" }, { ids::eqMidFreq, "MID LOW FREQ" },
+                { ids::eqMidQ, "MID LOW Q" }, { ids::eqMid2, "MID HIGH" }, { ids::eqMid2Freq, "MID HIGH FREQ" },
+                { ids::eqMid2Q, "MID HIGH Q" }, { ids::eqHigh, "HIGH SHELF" },
+                { ids::eqHighFreq, "HIGH FREQ" }, { ids::eqAir, "AIR" } } },
 
             { "COMPRESSOR", "VCA, FET, optical and tube detectors", "DYNAMICS", ids::compOn,
               0xff86ff2b, ScopeKind::compressor,
@@ -138,15 +139,28 @@ namespace modules
               { { ids::dblAmount, "AMOUNT" }, { ids::dblWidth, "WIDTH" }, { ids::dblHuman, "HUMANIZE" },
                 { ids::dblPitch, "PITCH DRIFT" } } },
 
+            { "CONVOLVER", "Real impulse responses, four spaces", "FX", ids::convOn,
+              0xff30e6ff, ScopeKind::convolution,
+              {},
+              { { ids::convAlgo, "SPACE" }, { ids::convPredelay, "PRE-DELAY" }, { ids::convTone, "TONE" },
+                { ids::convWidth, "WIDTH" }, { ids::convMix, "MIX" } } },
+
+            { "CASSETTE", "Wow, flutter, grit and tape hiss", "FX", ids::casOn,
+              0xffff8d1f, ScopeKind::cassette,
+              {},
+              { { ids::casDrive, "DRIVE" }, { ids::casWow, "WOW" }, { ids::casTone, "TONE" },
+                { ids::casHiss, "HISS" }, { ids::casMix, "MIX" } } },
+
+            { "DJ SPIN", "Backspins and brake stops on a timer", "FX", ids::spinOn,
+              0xffffc93c, ScopeKind::spin,
+              {},
+              { { ids::spinRate, "EVERY" }, { ids::spinLength, "LENGTH" }, { ids::spinDepth, "BACKSPIN" },
+                { ids::spinMix, "MIX" } } },
+
             { "STEREO", "Width, mono bass and balance", "FX", ids::stereoOn,
               0xff30e6ff, ScopeKind::stereo,
               {},
               { { ids::stereoWidth, "WIDTH" }, { ids::stereoBass, "BASS MONO" }, { ids::stereoBalance, "BALANCE" } } },
-
-            { "CREATIVE FX", "Reverse, stops, robot, bit crush", "FX", ids::fxOn,
-              0xffc65cff, ScopeKind::fx,
-              {},
-              { { ids::fxType, "TYPE" }, { ids::fxAmount, "AMOUNT" }, { ids::fxTone, "TONE" }, { ids::fxMix, "MIX" } } },
 
             { "DELAY", "Analog, tape, ping-pong and ducking", "FX", ids::dlyOn,
               0xffc65cff, ScopeKind::echo,

@@ -11,6 +11,7 @@
 #include "Dsp/Tone.h"
 #include "Dsp/Space.h"
 #include "Dsp/Creative.h"
+#include "Dsp/Fx.h"
 #include "Dsp/Master.h"
 
 class VocalROIDZProcessor : public juce::AudioProcessor
@@ -32,7 +33,7 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 4.0; }
+    double getTailLengthSeconds() const override { return 6.0; }
 
     // The factory presets are exposed as host programs so they show up in the DAW too.
     int getNumPrograms() override { return (int) presets::factory().size(); }
@@ -93,8 +94,10 @@ private:
     ChopNScrew        chopScrew;
     HyperStutter      stutter;
     VocalDoubler      doubler;
+    ConvolverSpace    convolver;
+    CassetteTape      cassette;
+    DJSpin            djSpin;
     StereoImager      imager;
-    CreativeFxLab     creative;
     DelayLab          delayLab;
     ReverbSpace       reverbSpace;
     MasterFinish      masterFinish;

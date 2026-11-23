@@ -52,6 +52,9 @@ public:
             case modules::ScopeKind::fx:         drawFx (g, area); break;
             case modules::ScopeKind::pitchfx:    drawPitchFx (g, area); break;
             case modules::ScopeKind::stutter:    drawRegularStutter (g, area); break;
+            case modules::ScopeKind::convolution: drawConvolution (g, area); break;
+            case modules::ScopeKind::cassette:   drawCassette (g, area); break;
+            case modules::ScopeKind::spin:       drawSpin (g, area); break;
             default:                             drawLoudness (g, area); break;
         }
     }
@@ -418,6 +421,135 @@ private:
                     juce::Justification::centredLeft, false);
     }
 
+    void drawConvolution (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const int space = juce::jlimit (0, 3, (int) pv (ids::convAlgo));
+        const float mix = juce::jlimit (0.0f, 1.0f, pv (ids::convMix));
+        const float predelay = pv (ids::convPredelay);
+        static const float seconds[] = { 0.9f, 1.7f, 2.7f, 3.6f };
+        static const char* names[] = { "ROOM", "PLATE", "HALL", "CHURCH" };
+
+        const float len = seconds[space];
+        juce::Path path;
+        path.startNewSubPath (area.getX(), area.getY() + 6.0f);
+
+        for (int i = 1; i <= 96; ++i)
+        {
+            const float t = (float) i / 96.0f;
+            const float env = std::exp (-t * (4.0f + (float) space * 0.9f));
+            path.lineTo (area.getX() + t * area.getWidth(),
+                         area.getBottom() - env * (area.getHeight() - 18.0f) - 6.0f);
+        }
+
+        g.setColour (accent.withAlpha (0.30f + mix * 0.3f));
+        g.strokePath (path, juce::PathStrokeType (1.8f));
+
+        // Early-reflection cluster at the start of the impulse.
+        for (int k = 0; k < 12; ++k)
+        {
+            const float x = area.getX() + (0.012f + 0.055f * (float) k / 12.0f) * area.getWidth();
+            const float h = (0.25f - 0.017f * (float) k) * area.getHeight();
+            g.setColour (accent.withAlpha (0.20f + 0.04f * (float) (12 - k)));
+            g.fillRoundedRectangle (x, area.getCentreY() - h * 0.5f, 2.0f, h, 1.0f);
+        }
+
+        g.setFont (ui::font (11.0f, true));
+        g.setColour (accent);
+        g.drawText (juce::String (names[space]) + "  " + juce::String (len, 1) + " s",
+                    area.toNearestInt().removeFromBottom (18), juce::Justification::centredLeft, false);
+
+        g.setFont (ui::font (10.0f));
+        g.setColour (ui::dim);
+        g.drawText (juce::String (predelay, 0) + " ms pre  /  " + juce::String (mix * 100.0f, 0) + "% wet",
+                    area.toNearestInt().removeFromBottom (18), juce::Justification::centredRight, false);
+    }
+
+    void drawCassette (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const float wow = juce::jlimit (0.0f, 1.0f, pv (ids::casWow));
+        const float tone = pv (ids::casTone);
+        const float hiss = juce::jlimit (0.0f, 1.0f, pv (ids::casHiss));
+        const float drive = juce::jlimit (0.0f, 1.0f, pv (ids::casDrive));
+        const float t = (float) nowMs() * 0.001f;
+
+        // The wobble is the story: a slow wow LFO with a fast flutter on top.
+        juce::Path path;
+        const float amp = (2.0f + wow * 26.0f) * (area.getHeight() / 120.0f);
+
+        for (int i = 0; i <= 160; ++i)
+        {
+            const float p = (float) i / 160.0f;
+            const float x = area.getX() + p * area.getWidth();
+            const float wobble = std::sin (p * juce::MathConstants<float>::twoPi * 2.0f + t * 1.4f) * amp
+                               + std::sin (p * juce::MathConstants<float>::twoPi * 31.0f + t * 9.0f) * amp * 0.10f;
+            const float y = area.getCentreY() + wobble;
+
+            if (i == 0)
+                path.startNewSubPath (x, y);
+            else
+                path.lineTo (x, y);
+        }
+
+        g.setColour (accent.withAlpha (0.85f));
+        g.strokePath (path, juce::PathStrokeType (1.5f));
+
+        // Tone and hiss meters.
+        auto meter = area.removeFromBottom (26.0f).reduced (0.0f, 8.0f);
+        const float toneNorm = juce::jlimit (0.0f, 1.0f, (tone - 1000.0f) / 11000.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        g.fillRoundedRectangle (meter, 3.0f);
+        g.setColour (accent.withAlpha (0.55f));
+        g.fillRoundedRectangle (meter.withWidth (meter.getWidth() * toneNorm), 3.0f);
+
+        g.setFont (ui::font (10.0f, true));
+        g.setColour (ui::text);
+        g.drawText ("WOW " + juce::String (wow * 100.0f, 0) + "%   DRIVE " + juce::String (drive * 100.0f, 0) + "%",
+                    area.toNearestInt().removeFromBottom (18), juce::Justification::centredLeft, false);
+        g.setColour (ui::dim);
+        g.drawText (juce::String (tone / 1000.0f, 1) + " kHz  /  HISS " + juce::String (hiss * 100.0f, 0) + "%",
+                    area.toNearestInt().removeFromBottom (18), juce::Justification::centredRight, false);
+    }
+
+    void drawSpin (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const float depth = juce::jlimit (0.0f, 1.0f, pv (ids::spinDepth));
+        const float rate = juce::jmax (0.5f, pv (ids::spinRate));
+
+        const float t = (float) std::fmod (nowMs() * 0.001, (double) rate) / rate;
+        auto yFor = [&] (float speed) { return area.getCentreY() - juce::jlimit (-1.2f, 1.2f, speed) * area.getHeight() * 0.36f; };
+
+        // Normal speed line.
+        g.setColour (juce::Colours::white.withAlpha (0.18f));
+        g.drawHorizontalLine ((int) yFor (1.0f), area.getX(), area.getRight());
+
+        // Brake curve: speed dives through zero and comes back.
+        juce::Path curve;
+        curve.startNewSubPath (area.getX(), yFor (1.0f));
+
+        for (int i = 1; i <= 96; ++i)
+        {
+            const float p = (float) i / 96.0f;
+            const float speed = 1.0f - 1.75f * depth * std::sin (juce::MathConstants<float>::pi * p);
+            curve.lineTo (area.getX() + p * area.getWidth(), yFor (speed));
+        }
+
+        g.setColour (accent.withAlpha (0.9f));
+        g.strokePath (curve, juce::PathStrokeType (1.8f));
+
+        const float px = area.getX() + t * area.getWidth();
+        g.setColour (juce::Colours::white.withAlpha (0.9f));
+        g.fillEllipse (px - 3.0f, yFor (1.0f) - 3.0f, 6.0f, 6.0f);
+
+        g.setFont (ui::font (11.0f, true));
+        g.setColour (accent);
+        g.drawText ("BACKSPIN " + juce::String (depth * 100.0f, 0) + "%",
+                    area.toNearestInt().removeFromBottom (18), juce::Justification::centredLeft, false);
+        g.setFont (ui::font (10.0f));
+        g.setColour (ui::dim);
+        g.drawText ("EVERY " + juce::String (rate, 1) + " s",
+                    area.toNearestInt().removeFromBottom (18), juce::Justification::centredRight, false);
+    }
+
     void drawEcho (juce::Graphics& g, juce::Rectangle<float> area)
     {
         const float timeMs = pv (ids::dlyTime);
@@ -591,8 +723,8 @@ private:
 
     void drawFx (juce::Graphics& g, juce::Rectangle<float> area)
     {
-        const int type = (int) pv (ids::fxType);
-        const float amount = pv (ids::fxAmount);
+        const int type = 0;
+        const float amount = 0.5f;
         const float t = (float) nowMs() * 0.002f;
 
         juce::Path path;

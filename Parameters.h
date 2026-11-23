@@ -11,8 +11,6 @@ namespace ids
     inline constexpr const char* tuneRetune   = "tune_retune";
     inline constexpr const char* tuneHumanize = "tune_humanize";
     inline constexpr const char* tuneAmount   = "tune_amount";
-    inline constexpr const char* tuneHard     = "tune_hard";
-    inline constexpr const char* tuneFormant  = "tune_formant";
 
     // 02 Pitch FX - every creative pitch move lives here, away from the tuner
     inline constexpr const char* pitchFxOn      = "pitchfx_on";
@@ -29,6 +27,9 @@ namespace ids
     inline constexpr const char* eqMid        = "eq_mid";
     inline constexpr const char* eqMidFreq    = "eq_midfreq";
     inline constexpr const char* eqMidQ       = "eq_midq";
+    inline constexpr const char* eqMid2       = "eq_mid2";
+    inline constexpr const char* eqMid2Freq   = "eq_mid2freq";
+    inline constexpr const char* eqMid2Q      = "eq_mid2q";
     inline constexpr const char* eqHigh       = "eq_high";
     inline constexpr const char* eqHighFreq   = "eq_highfreq";
     inline constexpr const char* eqAir        = "eq_air";
@@ -139,12 +140,28 @@ namespace ids
     inline constexpr const char* nrClicks     = "nr_clicks";
     inline constexpr const char* nrAmount     = "nr_amount";
 
-    // 17 Creative FX Lab
-    inline constexpr const char* fxOn         = "fx_on";
-    inline constexpr const char* fxType       = "fx_type";
-    inline constexpr const char* fxAmount     = "fx_amount";
-    inline constexpr const char* fxTone       = "fx_tone";
-    inline constexpr const char* fxMix        = "fx_mix";
+    // 17 Convolver
+    inline constexpr const char* convOn       = "conv_on";
+    inline constexpr const char* convAlgo     = "conv_algo";
+    inline constexpr const char* convPredelay = "conv_predelay";
+    inline constexpr const char* convTone     = "conv_tone";
+    inline constexpr const char* convWidth    = "conv_width";
+    inline constexpr const char* convMix      = "conv_mix";
+
+    // 17b Cassette
+    inline constexpr const char* casOn        = "cas_on";
+    inline constexpr const char* casDrive     = "cas_drive";
+    inline constexpr const char* casWow       = "cas_wow";
+    inline constexpr const char* casTone      = "cas_tone";
+    inline constexpr const char* casHiss      = "cas_hiss";
+    inline constexpr const char* casMix       = "cas_mix";
+
+    // 17c DJ Spin
+    inline constexpr const char* spinOn       = "spin_on";
+    inline constexpr const char* spinRate     = "spin_rate";
+    inline constexpr const char* spinLength   = "spin_length";
+    inline constexpr const char* spinDepth    = "spin_depth";
+    inline constexpr const char* spinMix      = "spin_mix";
 
     // 18 Master Finish
     inline constexpr const char* masterOn     = "master_on";
@@ -194,8 +211,6 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     addFloat  (ids::tuneRetune,   "Retune Speed",     0.f, 1.f, 0.45f, 1.f, 2, "");
     addFloat  (ids::tuneHumanize, "Humanize",         0.f, 1.f, 0.25f, 1.f, 2, "");
     addFloat  (ids::tuneAmount,   "Correction",       0.f, 1.f, 0.85f, 1.f, 2, "");
-    addBool   (ids::tuneHard,     "Hard Tune",        false);
-    addBool   (ids::tuneFormant,  "Formant Preserve", true);
 
     // ------------------------------------------------------------------ 02 Pitch FX
     addBool   (ids::pitchFxOn,      "Pitch FX On",   false);
@@ -212,6 +227,9 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     addFloat  (ids::eqMid,     "Mid Band",  -14.f, 14.f, 0.f, 1.f, 1, "dB");
     addFloat  (ids::eqMidFreq, "Mid Freq",  250.f, 6000.f, 2200.f, 0.5f, 0, "Hz");
     addFloat  (ids::eqMidQ,    "Mid Q",     0.25f, 8.f, 0.9f, 0.5f, 2, "");
+    addFloat  (ids::eqMid2,    "Mid 2 Band", -14.f, 14.f, 0.f, 1.f, 1, "dB");
+    addFloat  (ids::eqMid2Freq,"Mid 2 Freq", 600.f, 12000.f, 3200.f, 0.5f, 0, "Hz");
+    addFloat  (ids::eqMid2Q,   "Mid 2 Q",   0.25f, 8.f, 1.f, 0.5f, 2, "");
     addFloat  (ids::eqHigh,    "High Shelf", -12.f, 12.f, 2.f, 1.f, 1, "dB");
     addFloat  (ids::eqHighFreq, "High Freq", 2000.f, 16000.f, 8000.f, 0.5f, 0, "Hz");
     addFloat  (ids::eqAir,     "Air Band",  0.f, 12.f, 2.5f, 1.f, 1, "dB");
@@ -323,13 +341,28 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     addFloat  (ids::nrClicks,   "Click Removal", 0.f, 1.f, 0.3f, 1.f, 2, "");
     addFloat  (ids::nrAmount,   "Intensity",   0.f, 1.f, 0.5f, 1.f, 2, "");
 
-    // ------------------------------------------------------------------ 17 Creative FX Lab
-    addBool   (ids::fxOn,       "FX On",    false);
-    addChoice (ids::fxType,     "Type",     { "Reverse FX", "Tape Stop", "Vinyl Stop", "Megaphone",
-                                              "Telephone Voice", "Robot Voice", "Bit Crusher", "Granular Echo" }, 0);
-    addFloat  (ids::fxAmount,   "Amount",   0.f, 1.f, 0.5f, 1.f, 2, "");
-    addFloat  (ids::fxTone,     "Tone",     200.f, 12000.f, 3000.f, 0.5f, 0, "Hz");
-    addFloat  (ids::fxMix,      "Mix",      0.f, 1.f, 1.f, 1.f, 2, "");
+    // ------------------------------------------------------------------ 17 Convolver
+    addBool   (ids::convOn,       "Convolver On", false);
+    addChoice (ids::convAlgo,     "Space",       { "Room", "Plate", "Hall", "Church" }, 1);
+    addFloat  (ids::convPredelay, "Pre-Delay",   0.f, 150.f, 20.f, 0.6f, 0, "ms");
+    addFloat  (ids::convTone,     "Tone",        800.f, 16000.f, 7000.f, 0.5f, 0, "Hz");
+    addFloat  (ids::convWidth,    "Width",       0.f, 1.f, 0.9f, 1.f, 2, "");
+    addFloat  (ids::convMix,      "Mix",         0.f, 1.f, 0.2f, 1.f, 2, "");
+
+    // ------------------------------------------------------------------ 17b Cassette
+    addBool   (ids::casOn,      "Cassette On", false);
+    addFloat  (ids::casDrive,   "Drive",    0.f, 1.f, 0.35f, 1.f, 2, "");
+    addFloat  (ids::casWow,     "Wow",      0.f, 1.f, 0.3f, 1.f, 2, "");
+    addFloat  (ids::casTone,    "Tone",     1000.f, 12000.f, 4800.f, 0.5f, 0, "Hz");
+    addFloat  (ids::casHiss,    "Hiss",     0.f, 1.f, 0.18f, 1.f, 2, "");
+    addFloat  (ids::casMix,     "Mix",      0.f, 1.f, 0.35f, 1.f, 2, "");
+
+    // ------------------------------------------------------------------ 17c DJ Spin
+    addBool   (ids::spinOn,      "DJ Spin On", false);
+    addFloat  (ids::spinRate,    "Every",      2.f, 30.f, 8.f, 0.6f, 1, "s");
+    addFloat  (ids::spinLength,  "Spin Length", 120.f, 1500.f, 420.f, 0.5f, 0, "ms");
+    addFloat  (ids::spinDepth,   "Backspin",  0.f, 1.f, 0.65f, 1.f, 2, "");
+    addFloat  (ids::spinMix,     "Mix",       0.f, 1.f, 1.f, 1.f, 2, "");
 
     // ------------------------------------------------------------------ 18 Master Finish
     addBool   (ids::masterOn,      "Master On", true);

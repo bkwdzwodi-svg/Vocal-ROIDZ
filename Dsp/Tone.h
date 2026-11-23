@@ -4,7 +4,8 @@
 
 // ---------------------------------------------------------------------------------------
 // AnalogEQ: high pass, low pass, low/high shelves, two parametric bells and an air shelf.
-// Coefficients are rebuilt only when a control actually moves.
+// Seven bands in musical order (HPF, low shelf, low bell, high bell, high shelf, air, LPF),
+// with coefficients rebuilt only when a control actually moves.
 // ---------------------------------------------------------------------------------------
 class AnalogEQ
 {
@@ -29,6 +30,7 @@ public:
             f->prepare (spec);
 
         lastHpf = lastLpf = lastLow = lastLowFreq = lastMid = lastMidFreq = lastMidQ = -9999.0f;
+        lastMid2 = lastMid2Freq = lastMid2Q = -9999.0f;
         lastHigh = lastHighFreq = lastAir = -9999.0f;
         reset();
     }
@@ -43,6 +45,7 @@ public:
                   float hpfHz, float lpfHz,
                   float lowGain, float lowFreq,
                   float midGain, float midFreq, float midQ,
+                  float mid2Gain, float mid2Freq, float mid2Q,
                   float highGain, float highFreq, float airGain)
     {
         using Coeffs = juce::dsp::IIR::Coefficients<float>;
@@ -53,6 +56,8 @@ public:
         lowFreq = juce::jlimit (30.0f, nyq * 0.5f, lowFreq);
         midFreq = juce::jlimit (120.0f, nyq * 0.8f, midFreq);
         midQ = juce::jlimit (0.2f, 10.0f, midQ);
+        mid2Freq = juce::jlimit (400.0f, nyq * 0.8f, mid2Freq);
+        mid2Q = juce::jlimit (0.2f, 10.0f, mid2Q);
         highFreq = juce::jlimit (1000.0f, nyq * 0.85f, highFreq);
 
         if (std::abs (hpfHz - lastHpf) > 0.01f)
@@ -83,6 +88,15 @@ public:
             lastMidQ = midQ;
         }
 
+        if (std::abs (mid2Gain - lastMid2) > 0.001f || std::abs (mid2Freq - lastMid2Freq) > 0.01f
+            || std::abs (mid2Q - lastMid2Q) > 0.001f)
+        {
+            *peak2.state = *Coeffs::makePeakFilter (fs, mid2Freq, mid2Q, juce::Decibels::decibelsToGain (mid2Gain));
+            lastMid2 = mid2Gain;
+            lastMid2Freq = mid2Freq;
+            lastMid2Q = mid2Q;
+        }
+
         if (std::abs (highGain - lastHigh) > 0.001f || std::abs (highFreq - lastHighFreq) > 0.01f)
         {
             *highShelf.state = *Coeffs::makeHighShelf (fs, highFreq, 0.707f,
@@ -102,11 +116,12 @@ public:
         juce::dsp::ProcessContextReplacing<float> ctx (block);
 
         hpf.process (ctx);
-        lpf.process (ctx);
         lowShelf.process (ctx);
         peak1.process (ctx);
+        peak2.process (ctx);
         highShelf.process (ctx);
         air.process (ctx);
+        lpf.process (ctx);
     }
 
 private:
@@ -117,6 +132,7 @@ private:
     double fs = 44100.0;
     float lastHpf = -9999.f, lastLpf = -9999.f, lastLow = -9999.f, lastLowFreq = -9999.f;
     float lastMid = -9999.f, lastMidFreq = -9999.f, lastMidQ = -9999.f;
+    float lastMid2 = -9999.f, lastMid2Freq = -9999.f, lastMid2Q = -9999.f;
     float lastHigh = -9999.f, lastHighFreq = -9999.f, lastAir = -9999.f;
 };
 

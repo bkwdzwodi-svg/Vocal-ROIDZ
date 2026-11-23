@@ -40,7 +40,8 @@ jobs:
 
           In the plugin, pick a preset from the header and use the nine-section
           rail on the left: Autotune, Pitch, EQ, Compressor, Saturation, Reverb,
-          Limit, Gate and FX. The FX page holds every remaining effect.
+          Limit, Gate and FX. The FX page holds the remaining effects, including
+          the convolver, cassette and DJ spin.
           "@ | Out-File -Encoding ASCII INSTALL.txt
 
           Compress-Archive -Path $vst3.FullName, INSTALL.txt -DestinationPath 'VocalROIDZ-Windows-VST3.zip'
@@ -54,18 +55,19 @@ jobs:
       - name: Publish release asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.2.0
-          name: VOCAL ROIDS 2.2.0 - Windows VST3
+          tag_name: v2.3.0
+          name: VOCAL ROIDS 2.3.0 - Windows VST3
           body: |
             Windows VST3 build of VOCAL ROIDS.
 
             1. Unzip and copy the `Vocal ROIDZ.vst3` folder into `C:\Program Files\Common Files\VST3`.
             2. Rescan plugins in your DAW and insert **Vocal ROIDZ** by BKWDZ.
 
-            2.2.0: the rack is now nine sections - Autotune, Pitch, EQ, Compressor, Saturation,
-            Reverb, Limit, Gate and FX - with harmony, doubles, de-esser, cleanup, stutters, chop,
-            delay and stereo folded into one scrollable FX rack. Every factory preset was rebuilt
-            and level-matched, and the autotune snaps inside the singer's own octave with formant
-            preserve on by default.
+            2.3.0: autotune is now classic hard tune only - the formant and hard-tune switches are
+            gone, the tuner always snaps, and retune/humanize stay for feel. The EQ is a seven-band
+            display with live spectrum and axis labels, the compressor uses a cleaner peak+RMS
+            detector, and the FX rack adds a real convolver, cassette and DJ spin in place of the
+            generic creative effect. The whole preset bank was rebuilt, including Melodic Trap and
+            Trap Tune.
           files: VocalROIDZ-Windows-VST3.zip
           fail_on_unmatched_files: true

@@ -28,10 +28,10 @@ keep `Contents` inside it when you copy it.
 
 | # | Section | What it does |
 |---|---------|--------------|
-| 01 | **Autotune** | Scale-locked correction with retune, humanize, correction depth, hard tune and formant preserve (on by default) |
+| 01 | **Autotune** | Classic hard tune, always snapped: scale-locked correction with retune, humanize and correction depth |
 | 02 | **Pitch** | Creative transposition ±2 octaves, formant shift and mix — entirely separate from the tuner |
-| 03 | **EQ** | Draggable six-band graph: high/low pass, low shelf, bell with Q, high shelf and air, drawn from the real DSP response |
-| 04 | **Compressor** | VCA, FET, Optical and Tube detectors with transfer curve, live operating point, in/out meters and gain-reduction history |
+| 03 | **EQ** | Seven-band graph with live spectrum: high/low pass, low shelf, two bells with Q, high shelf and air, drawn from the real DSP response |
+| 04 | **Compressor** | Clean peak+RMS program-dependent detector in VCA, FET, Optical and Tube feels, with transfer curve, meters and gain-reduction history |
 | 05 | **Saturation** | Tube, Tape, Vintage, Modern, Warm and Aggressive drive with warmth, density and mix |
 | 06 | **Reverb** | Room, Hall, Plate, Arena, Ambient, Dream and Cathedral with pre-delay, tone, modulation and width |
 | 07 | **Limit** | Punch, warmth, air, glue, loudness trim and a ceiling limiter, with loudness and correlation meters |
@@ -46,32 +46,35 @@ keep `Contents` inside it when you copy it.
 | **Noise Removal** | Hum notches, breath-band reduction and click repair |
 | **De-Esser** | Split-band sibilance control with a sibilance graph |
 | **Regular Stutter** | Clean, repeating slices on a timer: trigger period, slice length, repeats, mix |
-| **Chop-N-Screw** | Classic Screw, Texas Heavy, BKWDZ WODI, Dark Atmosphere, Trance Screw, Chaos Screw with pitch drop, slowdown, phrase repeats and tape drift |
 | **Hyper Stutter** | Micro Chop, Machine Gun, Hyperpop, Reverse Chaos, Freeze, Glitch Storm |
+| **Chop-N-Screw** | Classic Screw, Texas Heavy, BKWDZ WODI, Dark Atmosphere, Trance Screw, Chaos Screw with pitch drop, slowdown, phrase repeats and tape drift |
 | **Doubler** | Two drifting short delays with humanize and pitch-drift variation |
+| **Convolver** | Real impulse-response reverb: Room, Plate, Hall and Church with pre-delay, tone, width and mix |
+| **Cassette** | Wow, flutter, drive, tape tone and hiss for a worn-tape vocal |
+| **DJ Spin** | Timed backspins and brake stops: rate, length, backspin depth and mix |
 | **Stereo** | Width, mono bass and balance with a goniometer |
-| **Creative FX** | Reverse, tape stop, vinyl stop, megaphone, telephone, robot, bit crusher and granular echo |
 | **Delay** | Analog, Tape, Ping Pong and Ducking modes with tone and width |
 
 Signal order: Autotune → Pitch → Harmony → Cleanup → Gate → EQ → Compressor → Saturation →
-De-Esser → Regular Stutter → Chop-N-Screw → Hyper Stutter → Doubler → Stereo → Creative FX →
-Delay → Reverb → Limit.
+De-Esser → Regular Stutter → Hyper Stutter → Chop-N-Screw → Doubler → Convolver → Cassette →
+DJ Spin → Stereo → Delay → Reverb → Limit.
 
 Every section has a POWER switch, and every control is a draggable glass syringe: drag up to draw
 more juice, drag down to push it out, double-click to reset, mouse wheel to nudge. Values are
 host-automatable and saved with the project.
 
-The EQ graph works like a hardware EQ display: drag a node horizontally for frequency and vertically
-for gain, and roll the wheel over the bell for its Q. The compressor graph draws the real transfer
-curve, shades the compressed region and shows input, output and gain reduction live.
+The EQ graph works like a hardware EQ display: the live spectrum sits behind a seven-band curve,
+with a labelled dB and frequency grid. Drag a node horizontally for frequency and vertically for
+gain, and roll the wheel over either bell for its Q. The compressor graph draws the real transfer
+curve, shades the compressed region and shows attack/release, input, output and gain reduction live.
 
 ## Pitch correction does not change the voice
 
 - Autotune snaps to the nearest in-scale note **in the singer's own octave**, so changing key or
   scale can never transpose the take or make it sound deeper. The tuner is limited to a
   one-semitone nudge by design.
-- **Formant Preserve** is on by default and uses pitch-synchronous overlap-add: the pitch moves, the
-  formants stay put, so the singer still sounds like themselves.
+- Correction is always **classic hard tune**: there is no formant-preserve switch and no mode
+  switch to get wrong. The tuner uses a tight grain snap, so the note lands and stays there.
 - Creative pitch (pitch, formant shift, octaves) lives in the Pitch section and the FX rack only.
 
 ## Presets
@@ -79,8 +82,9 @@ curve, shades the compressed region and shows input, output and gain reduction l
 Factory presets are grouped by style and are exposed as host programs, so your DAW's preset menu
 shows the same list. They are level-matched so switching never jumps in volume.
 
-**Genre Presets** — Melodic Trap, Dark Trap, Emo Rap, Rage, Hyperpop, Drill, Alternative Hip-Hop,
-Singing Vocals, Pop Vocals, R&B Smooth, Podcast Voice, Broadcast Voice, Voiceover Clean.
+**Genre Presets** — Melodic Trap, Trap Tune, Dark Trap, Emo Rap, Rage, Hyperpop, Drill,
+Alternative Hip-Hop, Singing Vocals, Pop Vocals, R&B Smooth, Podcast Voice, Broadcast Voice,
+Voiceover Clean.
 
 **Signature Presets** — BKWDZ Signature, Dream Vocal, Dark Atmosphere, Arena Vocal, Hard Tune,
 Natural Correction, Screwed & Chopped, Doubled Stack, Stutter Trap, Lo-Fi Bedroom.
@@ -110,8 +114,6 @@ Set `COPY_PLUGIN_AFTER_BUILD TRUE` to install into your system plugin folder aut
 
 - Autotune is monophonic, like a vocal take. Chords and stacked harmonies confuse any single-voice
   tracker, so print the tuned lead before stacking.
-- Formant-preserving correction works on pitch periods, so it adds a fixed ~22 ms of latency while
-  Autotune is enabled. The plugin does not report that latency to the host yet.
 - AAX is not built here (it needs Avid's SDK).
 - The DSP is 64-bit-float end to end; oversampling is not used, so the saturation and clipper are
   tuned to stay clean at normal vocal levels.

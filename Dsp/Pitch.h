@@ -287,8 +287,9 @@ private:
 //
 // Monophonic pitch tracking (normalised autocorrelation on a decimated window), snapped to
 // the nearest note of the chosen key and scale in the singer's own octave, then corrected
-// by at most a semitone. Formant-preserving PSOLA is the default path, so changing key or
-// scale can never move the voice's register: creative pitch lives in the Pitch FX module.
+// by at most a semitone. Correction always uses the classic granular path (no formant
+// preservation, no mode switches) and always snaps hard, so changing key or scale can never
+// move the voice's register: creative pitch lives in the Pitch FX module.
 // ---------------------------------------------------------------------------------------
 class AutoTune
 {
@@ -296,9 +297,7 @@ public:
     struct Settings
     {
         int key = 0, scale = 0;
-        float retune = 0.45f, humanize = 0.25f, amount = 0.85f;
-        bool hard = false;
-        bool formant = true;
+        float retune = 1.0f, humanize = 0.0f, amount = 1.0f;
     };
 
     static juce::StringArray keyNames()
@@ -317,7 +316,6 @@ public:
     {
         fs = sampleRate;
         shifter.prepare (sampleRate, maxBlock, numChannels);
-        psola.prepare (sampleRate, maxBlock, numChannels);
 
         const int hopSamples = juce::jmax (64, (int) std::lround (sampleRate * 0.010));  // 10 ms
         hop = hopSamples;
@@ -334,7 +332,6 @@ public:
     void reset()
     {
         shifter.reset();
-        psola.reset();
         std::fill (history.begin(), history.end(), 0.0f);
         writeIdx = 0;
         hopCounter = 0;
@@ -369,22 +366,13 @@ public:
             }
         }
 
-        // Retune speed: 1 ms when hard, up to 260 ms when lazy. The block is one control step.
-        const float timeSec = s.hard ? 0.001f : juce::jmap (juce::jlimit (0.0f, 1.0f, s.retune), 0.26f, 0.004f);
+        // Classic hard tune: the snap lands in 2-45 ms, always on the note. The control only
+        // decides how much of that tiny window the correction takes.
+        const float timeSec = juce::jmap (juce::jlimit (0.0f, 1.0f, s.retune), 0.045f, 0.002f);
         const float coeff = 1.0f - std::exp (-(float) n / (float) (timeSec * fs));
         ratioSmoothed += (targetRatio - ratioSmoothed) * juce::jlimit (0.0f, 1.0f, coeff);
 
-        if (s.formant)
-        {
-            if (! psola.isPrepared())
-                return;
-
-            psola.process (buffer, ratioSmoothed, voicedHz);
-        }
-        else
-        {
-            shifter.process (buffer, ratioSmoothed);
-        }
+        shifter.process (buffer, ratioSmoothed);
     }
 
 private:
@@ -469,15 +457,13 @@ private:
 
         float depth = juce::jlimit (0.0f, 1.0f, s.amount);
 
-        // Humanize sets a deadband: small errors are left alone so the take keeps its life.
-        if (s.humanize > 0.001f && ! s.hard)
+        // Humanize sets a very small deadband: the note is still snapped, but a few cents of
+        // natural movement survive so the take keeps its life.
+        if (s.humanize > 0.001f)
         {
-            const float deadband = s.humanize * 45.0f;
+            const float deadband = s.humanize * 12.0f;
             depth *= juce::jlimit (0.0f, 1.0f, std::abs (centsError) / juce::jmax (1.0f, deadband));
         }
-
-        if (s.hard)
-            depth = 1.0f;
 
         // Hard guard: the tuner only ever nudges the note. Anything bigger is a Pitch FX job.
         const float semitones = juce::jlimit (-1.0f, 1.0f, centsError * depth / 100.0f);
@@ -570,7 +556,6 @@ private:
     }
 
     GranularPitchShifter shifter;
-    PsolaShifter psola;
     std::vector<float> history;
     int writeIdx = 0, hop = 441, hopCounter = 0;
     float ratioSmoothed = 1.0f, targetRatio = 1.0f, voicedHz = 220.0f;

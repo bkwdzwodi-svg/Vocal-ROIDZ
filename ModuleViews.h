@@ -33,6 +33,7 @@ public:
         plot = b.reduced (16.0f, 20.0f);
 
         drawGrid (g);
+        drawSpectrum (g);
 
         const auto filters = makeFilters();
         const double fs = juce::jmax (8000.0, proc.getSampleRate());
@@ -91,15 +92,15 @@ public:
             const float gain = d.gainId != nullptr ? param (d.gainId) : 0.0f;
             juce::String text (d.name);
 
-            if (d.frequency || d.fixedFreq == 0.0f)
+            if (d.frequency)
                 text << "  " << juce::String (f < 1000.0f ? juce::String (f, 0) + " Hz"
                                                           : juce::String (f / 1000.0f, 2) + " kHz");
 
             if (d.gainId != nullptr)
                 text << "  " << (gain >= 0.0f ? "+" : "") << juce::String (gain, 1) << " dB";
 
-            if (hoverBand == 3)
-                text << "  Q " << juce::String (param (ids::eqMidQ), 2);
+            if (isBell (hoverBand))
+                text << "  Q " << juce::String (param (hoverBand == 2 ? ids::eqMidQ : ids::eqMid2Q), 2);
 
             g.setFont (ui::font (11.0f, true));
             g.setColour (ui::text);
@@ -111,7 +112,7 @@ public:
     void mouseMove (const juce::MouseEvent& e) override
     {
         const int hit = findNode (e.position);
-        const bool mid = hit == 3;
+        const bool mid = isBell (hit);
 
         setMouseCursor (hit >= 0 ? (mid ? juce::MouseCursor::UpDownLeftRightResizeCursor
                                        : juce::MouseCursor::DraggingHandCursor)
@@ -162,10 +163,11 @@ public:
     {
         const int hit = findNode (e.position);
 
-        if (hit == 3 && std::abs (w.deltaY) > 0.001f)
+        if (isBell (hit) && std::abs (w.deltaY) > 0.001f)
         {
-            const float q = juce::jlimit (0.25f, 8.0f, param (ids::eqMidQ) * (1.0f + w.deltaY * 0.35f));
-            setParam (ids::eqMidQ, q);
+            const char* qid = hit == 2 ? ids::eqMidQ : ids::eqMid2Q;
+            const float q = juce::jlimit (0.25f, 8.0f, param (qid) * (1.0f + w.deltaY * 0.35f));
+            setParam (qid, q);
             repaint();
         }
     }
@@ -182,20 +184,23 @@ private:
         bool gain;
     };
 
-    static const std::array<BandDef, 6>& bands()
+    static const std::array<BandDef, 7>& bands()
     {
-        static const std::array<BandDef, 6> defs =
+        static const std::array<BandDef, 7> defs =
         {{
             { "HIGH PASS", ids::eqHpf,      nullptr,        0.0f,    juce::Colour (0xff30e6ff), true,  false },
-            { "LOW PASS",  ids::eqLpf,      nullptr,        0.0f,    juce::Colour (0xff30e6ff), true,  false },
             { "LOW",       ids::eqLowFreq,  ids::eqLow,     0.0f,    juce::Colour (0xffffc93c), true,  true  },
-            { "MID",       ids::eqMidFreq,  ids::eqMid,     0.0f,    juce::Colour (0xff86ff2b), true,  true  },
+            { "MID LOW",   ids::eqMidFreq,  ids::eqMid,     0.0f,    juce::Colour (0xff86ff2b), true,  true  },
+            { "MID HIGH",  ids::eqMid2Freq, ids::eqMid2,    0.0f,    juce::Colour (0xff4fd8ff), true,  true  },
             { "HIGH",      ids::eqHighFreq, ids::eqHigh,    0.0f,    juce::Colour (0xffc65cff), true,  true  },
-            { "AIR",       nullptr,         ids::eqAir,     12000.0f, juce::Colour (0xffff8d1f), false, true  }
+            { "AIR",       nullptr,         ids::eqAir,     12000.0f, juce::Colour (0xffff8d1f), false, true  },
+            { "LOW PASS",  ids::eqLpf,      nullptr,        0.0f,    juce::Colour (0xff30e6ff), true,  false }
         }};
 
         return defs;
     }
+
+    static bool isBell (int band) { return band == 2 || band == 3; }
 
     void timerCallback() override
     {
@@ -203,7 +208,8 @@ private:
         float sum = 0.0f;
 
         for (const auto& id : { ids::eqHpf, ids::eqLpf, ids::eqLow, ids::eqLowFreq, ids::eqMid,
-                                ids::eqMidFreq, ids::eqMidQ, ids::eqHigh, ids::eqHighFreq, ids::eqAir })
+                                ids::eqMidFreq, ids::eqMidQ, ids::eqMid2, ids::eqMid2Freq, ids::eqMid2Q,
+                                ids::eqHigh, ids::eqHighFreq, ids::eqAir })
             sum += param (id);
 
         if (std::abs (sum - lastSum) > 0.0001f)
@@ -307,33 +313,91 @@ private:
 
     void drawGrid (juce::Graphics& g)
     {
-        g.setColour (juce::Colours::white.withAlpha (0.05f));
-
-        for (int i = 0; i <= 4; ++i)
+        // Horizontal dB grid every 6 dB, stronger at unity.
+        for (int db = -24; db <= 24; db += 6)
         {
-            const float y = plot.getY() + plot.getHeight() * (float) i / 4.0f;
-            g.drawLine (plot.getX(), y, plot.getRight(), y, 1.0f);
+            const float y = gainToY ((float) db);
+            g.setColour (juce::Colours::white.withAlpha (db == 0 ? 0.16f : 0.055f));
+            g.drawLine (plot.getX(), y, plot.getRight(), y, db == 0 ? 1.2f : 1.0f);
         }
 
-        for (float hz : { 100.0f, 1000.0f, 10000.0f })
+        // Log frequency grid with a line and label at every useful octave point.
+        for (float hz : { 20.0f, 50.0f, 100.0f, 200.0f, 500.0f, 1000.0f, 2000.0f, 5000.0f, 10000.0f, 20000.0f })
+        {
+            const bool decade = hz == 100.0f || hz == 1000.0f || hz == 10000.0f;
+            g.setColour (juce::Colours::white.withAlpha (decade ? 0.09f : 0.045f));
             g.drawVerticalLine ((int) freqToX (hz), plot.getY(), plot.getBottom());
+        }
 
-        // 0 dB reference.
-        g.setColour (juce::Colours::white.withAlpha (0.16f));
-        g.drawLine (plot.getX(), gainToY (0.0f), plot.getRight(), gainToY (0.0f), 1.0f);
+        g.setFont (ui::font (9.5f));
+        g.setColour (ui::dim.withAlpha (0.85f));
 
-        g.setFont (ui::font (10.0f));
-        g.setColour (ui::dim.withAlpha (0.8f));
-        g.drawText ("20", plot.toNearestInt().removeFromBottom (16).removeFromLeft (18),
-                    juce::Justification::bottomLeft, false);
-        g.drawText ("1k", juce::Rectangle<int> ((int) freqToX (1000.0f) - 10, (int) plot.getBottom() - 16, 20, 16),
-                    juce::Justification::centred, false);
-        g.drawText ("20k", plot.toNearestInt().removeFromBottom (16).removeFromRight (26),
-                    juce::Justification::bottomRight, false);
-        g.drawText ("+24", juce::Rectangle<int> ((int) plot.getX(), (int) plot.getY(), 26, 14),
-                    juce::Justification::topLeft, false);
-        g.drawText ("-24", juce::Rectangle<int> ((int) plot.getX(), (int) plot.getBottom() - 14, 26, 14),
-                    juce::Justification::bottomLeft, false);
+        auto labelRow = plot.toNearestInt().removeFromBottom (15);
+
+        for (auto hz : { 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000 })
+        {
+            const juce::String text (hz >= 1000 ? juce::String (hz / 1000) + "k" : juce::String (hz));
+            const int x = (int) freqToX ((float) hz);
+            const int w = hz == 20 ? 24 : (hz == 20000 ? 30 : 28);
+            juce::Justification just = hz == 20 ? juce::Justification::bottomLeft
+                                   : (hz == 20000 ? juce::Justification::bottomRight
+                                                  : juce::Justification::centred);
+            g.drawText (text, juce::Rectangle<int> (x - w / 2, labelRow.getY(), w, 15), just, false);
+        }
+
+        for (int db : { 18, 12, 6, -6, -12, -18 })
+        {
+            const juce::String text ((db > 0 ? "+" : "") + juce::String (db));
+            g.drawText (text, juce::Rectangle<int> ((int) plot.getX() + 2, (int) gainToY ((float) db) - 6, 30, 12),
+                        juce::Justification::centredLeft, false);
+        }
+
+        g.setFont (ui::font (9.0f, true));
+        g.setColour (ui::dim.withAlpha (0.5f));
+        g.drawText ("7-BAND PARAMETRIC", getLocalBounds().removeFromTop (16).removeFromRight (150),
+                    juce::Justification::centredRight, false);
+    }
+
+    void drawSpectrum (juce::Graphics& g)
+    {
+        const auto& spectrum = proc.scope.spectrum;
+        const int bins = (int) spectrum.size();
+
+        if (bins < 2)
+            return;
+
+        juce::Path path;
+        bool started = false;
+
+        for (int i = 0; i < bins; ++i)
+        {
+            const float hz = 30.0f * std::pow (600.0f, (float) i / (float) (bins - 1));
+            const float x = freqToX (hz);
+            const float level = juce::jlimit (0.0f, 1.0f, spectrum[(size_t) i]);
+            const float y = plot.getBottom() - level * plot.getHeight() * 0.9f;
+
+            if (! started)
+            {
+                path.startNewSubPath (x, y);
+                started = true;
+            }
+            else
+            {
+                path.lineTo (x, y);
+            }
+        }
+
+        auto filled = path;
+        filled.lineTo (plot.getRight(), plot.getBottom());
+        filled.lineTo (plot.getX(), plot.getBottom());
+        filled.closeSubPath();
+
+        g.setGradientFill (juce::ColourGradient (accent.withAlpha (0.10f), plot.getX(), plot.getY(),
+                                                 accent.withAlpha (0.01f), plot.getX(), plot.getBottom(), false));
+        g.fillPath (filled);
+
+        g.setColour (accent.withAlpha (0.28f));
+        g.strokePath (path, juce::PathStrokeType (0.8f));
     }
 
     void drawNodes (juce::Graphics& g)
@@ -352,10 +416,10 @@ private:
             g.setColour (juce::Colours::black.withAlpha (0.45f));
             g.drawEllipse (p.x - r, p.y - r, r * 2.0f, r * 2.0f, 1.2f);
 
-            if (i == 3)
+            if (isBell (i))
             {
                 // Bandwidth halo around the bell.
-                const float q = juce::jlimit (0.25f, 8.0f, param (ids::eqMidQ));
+                const float q = juce::jlimit (0.25f, 8.0f, param (i == 2 ? ids::eqMidQ : ids::eqMid2Q));
                 const float w = juce::jlimit (16.0f, 260.0f, 150.0f / q);
                 g.setColour (d.colour.withAlpha (0.10f));
                 g.fillRoundedRectangle (p.x - w * 0.5f, p.y - 12.0f, w, 24.0f, 8.0f);
@@ -377,6 +441,9 @@ private:
         filters.push_back (Coeffs::makePeakFilter (fs, juce::jlimit (120.0f, nyq * 0.8f, param (ids::eqMidFreq)),
                                                    juce::jlimit (0.2f, 10.0f, param (ids::eqMidQ)),
                                                    juce::Decibels::decibelsToGain (param (ids::eqMid))));
+        filters.push_back (Coeffs::makePeakFilter (fs, juce::jlimit (400.0f, nyq * 0.8f, param (ids::eqMid2Freq)),
+                                                   juce::jlimit (0.2f, 10.0f, param (ids::eqMid2Q)),
+                                                   juce::Decibels::decibelsToGain (param (ids::eqMid2))));
         filters.push_back (Coeffs::makeHighShelf (fs, juce::jlimit (1000.0f, nyq * 0.85f, param (ids::eqHighFreq)), 0.707f,
                                                   juce::Decibels::decibelsToGain (param (ids::eqHigh))));
         filters.push_back (Coeffs::makeHighShelf (fs, juce::jlimit (1000.0f, nyq * 0.85f, 12000.0f), 0.707f,
@@ -528,6 +595,12 @@ private:
         g.drawText (juce::String (models[juce::jlimit (0, 3, (int) pv (ids::compModel))]) + "  DETECTOR",
                     area.toNearestInt().removeFromTop (14), juce::Justification::topLeft, false);
 
+        g.setFont (ui::font (9.5f));
+        g.setColour (ui::dim.withAlpha (0.75f));
+        g.drawText (juce::String (pv (ids::compAttack), 1) + " ms  /  "
+                    + juce::String (pv (ids::compRelease), 0) + " ms",
+                    area.toNearestInt().removeFromTop (14), juce::Justification::topRight, false);
+
         g.setColour (ui::dim.withAlpha (0.8f));
         g.setFont (ui::font (10.0f));
         g.drawText ("-60", area.toNearestInt().removeFromBottom (14).removeFromLeft (24),
@@ -566,8 +639,10 @@ private:
 
         g.setFont (ui::font (9.0f, true));
         g.setColour (ui::dim);
-        g.drawText ("GAIN REDUCTION HISTORY", area.toNearestInt().removeFromTop (12),
-                    juce::Justification::topRight, false);
+        g.drawText ("GAIN REDUCTION  -" + juce::String (shownGr, 1) + " dB",
+                    area.toNearestInt().removeFromTop (12), juce::Justification::topLeft, false);
+        g.setFont (ui::font (8.5f));
+        g.drawText ("HISTORY", area.toNearestInt().removeFromTop (12), juce::Justification::topRight, false);
     }
 
     void drawMeters (juce::Graphics& g, juce::Rectangle<float> area)
