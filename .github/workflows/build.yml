@@ -62,7 +62,9 @@ jobs:
       - name: Package Linux VST3
         if: runner.os == 'Linux'
         run: |
-          zip -r VocalROIDZ-Linux-VST3.zip $(find build -maxdepth 8 -name '*.vst3')
+          bundle=$(find build -maxdepth 8 -name '*.vst3' -print -quit)
+          test -n "$bundle" || { echo 'No .vst3 bundle was produced'; exit 1; }
+          zip -r VocalROIDZ-Linux-VST3.zip "$bundle"
 
       - uses: actions/upload-artifact@v4
         with:
