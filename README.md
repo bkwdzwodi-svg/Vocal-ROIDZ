@@ -7,10 +7,10 @@ syringe-style meter rack for input, compression, sibilance and output levels.
 
 ## Get a Windows VST3 without building anything
 
-The `Build plugin` GitHub Actions workflow builds a Release VST3 for Windows, macOS and Linux
-and attaches the zipped plugin to each run:
+The `Build Windows VST3` GitHub Actions workflow builds a Release Windows VST3 and attaches
+the zipped plugin to each run:
 
-1. Open the **Actions** tab, pick **Build plugin**, then **Run workflow**.
+1. Open the **Actions** tab, pick **Build Windows VST3**, then **Run workflow**.
 2. When the run finishes, download the **VocalROIDZ-Windows** artifact.
 3. Unzip it and copy the `Vocal ROIDZ.vst3` folder into `C:\Program Files\Common Files\VST3`
    (or any folder your DAW scans), then rescan plugins.
