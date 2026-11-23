@@ -28,7 +28,9 @@ public:
         {
             conv[(size_t) i].prepare (stereo);
             conv[(size_t) i].loadImpulseResponse (makeIr (i), fs,
-                                                  juce::dsp::Convolution::Normalise::yes, true);
+                                                  juce::dsp::Convolution::Stereo::yes,
+                                                  juce::dsp::Convolution::Trim::yes,
+                                                  juce::dsp::Convolution::Normalise::yes);
         }
 
         preDelay.setMaximumDelayInSamples ((int) std::ceil (fs * 0.2) + 4);
