@@ -7,8 +7,13 @@ live graph and syringe controls, plus a genre and signature preset bank.
 
 ## Get a Windows VST3 without building anything
 
-The `Build Windows VST3` GitHub Actions workflow builds a Release Windows VST3 and attaches the
-zipped plugin to each run:
+**Direct download:** [VocalROIDZ-Windows-VST3.zip](https://github.com/bkwdzwodi-svg/Vocal-ROIDZ/releases/latest/download/VocalROIDZ-Windows-VST3.zip)
+
+That zip contains the `Vocal ROIDZ.vst3` bundle plus `INSTALL.txt`. Copy the `.vst3` folder into
+`C:\Program Files\Common Files\VST3` and rescan plugins in your DAW.
+
+The `Build Windows VST3` GitHub Actions workflow rebuilds it and refreshes that download on every
+push to `main`; the same zip is also attached to each run:
 
 1. Open the **Actions** tab, pick **Build Windows VST3**, then **Run workflow**.
 2. When the run finishes, download the **VocalROIDZ-Windows** artifact.

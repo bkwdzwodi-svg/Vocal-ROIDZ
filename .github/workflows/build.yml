@@ -6,6 +6,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   windows:
     name: Windows VST3
@@ -25,10 +28,37 @@ jobs:
         run: |
           $vst3 = Get-ChildItem -Path build -Recurse -Directory -Filter '*.vst3' | Select-Object -First 1
           if (-not $vst3) { throw 'No .vst3 bundle was produced' }
-          Compress-Archive -Path $vst3.FullName -DestinationPath 'VocalROIDZ-Windows-VST3.zip'
+
+          @"
+          VOCAL ROIDS - Windows VST3
+          ==========================
+
+          1. Copy the 'Vocal ROIDZ.vst3' folder (keep its Contents folder inside)
+             into:  C:\Program Files\Common Files\VST3
+          2. Rescan plugins in your DAW.
+          3. Insert 'Vocal ROIDZ' by BKWDZ on a vocal track.
+
+          In the plugin, pick a preset from the header and use the module rail
+          on the left to move between the 16 modules.
+          "@ | Out-File -Encoding ASCII INSTALL.txt
+
+          Compress-Archive -Path $vst3.FullName, INSTALL.txt -DestinationPath 'VocalROIDZ-Windows-VST3.zip'
 
       - uses: actions/upload-artifact@v4
         with:
           name: VocalROIDZ-Windows
           path: VocalROIDZ-Windows-VST3.zip
           if-no-files-found: error
+
+      - name: Publish release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.0
+          name: VOCAL ROIDS 2.0.0 - Windows VST3
+          body: |
+            Windows VST3 build of VOCAL ROIDS.
+
+            1. Unzip and copy the `Vocal ROIDZ.vst3` folder into `C:\Program Files\Common Files\VST3`.
+            2. Rescan plugins in your DAW and insert **Vocal ROIDZ** by BKWDZ.
+          files: VocalROIDZ-Windows-VST3.zip
+          fail_on_unmatched_files: true
