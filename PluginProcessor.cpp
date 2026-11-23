@@ -1,15 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-namespace
-{
-    // Peak-hold with a gentle fall so the GUI (polling slower than the audio blocks) doesn't miss peaks.
-    void holdMax (std::atomic<float>& target, float value, float decay)
-    {
-        target.store (juce::jmax (value, target.load() * decay));
-    }
-}
-
 VocalROIDZProcessor::VocalROIDZProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
@@ -24,35 +15,50 @@ VocalROIDZProcessor::VocalROIDZProcessor()
 
 float VocalROIDZProcessor::param (const char* id) const
 {
-    return apvts.getRawParameterValue (id)->load();
+    if (auto* v = apvts.getRawParameterValue (id))
+        return v->load();
+
+    return 0.0f;
 }
 
 void VocalROIDZProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
-    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) samplesPerBlock, (juce::uint32) 2 };
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) juce::jmax (1, samplesPerBlock), (juce::uint32) 2 };
 
-    hpf.prepare (spec);
-    hpf.setType (juce::dsp::StateVariableTPTFilterType::highpass);
-
-    comp.prepare (spec);
+    tuner.prepare (sampleRate, samplesPerBlock, 2);
+    harmony.prepare (sampleRate, samplesPerBlock, 2);
+    cleanup.prepare (spec);
+    gate.prepare (sampleRate);
+    eq.prepare (spec);
+    compressor.prepare (sampleRate);
+    saturation.prepare (sampleRate);
+    deesser.prepare (sampleRate);
 
     makeup.prepare (spec);
     makeup.setRampDurationSeconds (0.02);
     outGain.prepare (spec);
     outGain.setRampDurationSeconds (0.02);
 
-    deesser.prepare (sampleRate);
+    chopScrew.prepare (sampleRate, 2);
+    stutter.prepare (sampleRate, 2);
+    doubler.prepare (spec);
+    imager.prepare (spec);
+    creative.prepare (spec);
+    delayLab.prepare (spec);
+    reverbSpace.prepare (spec);
+    masterFinish.prepare (spec);
 
-    delay.setMaximumDelayInSamples ((int) (sampleRate * 1.1));
-    delay.prepare (spec);
-    delayTone.prepare (spec);
-    delayTone.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
-
-    delaySamples.reset (sampleRate, 0.05);
-    delayMix.reset (sampleRate, 0.03);
-    delaySamples.setCurrentAndTargetValue ((float) (param (ids::delayTime) * 0.001 * sampleRate));
-    delayMix.setCurrentAndTargetValue (param (ids::delayOn) > 0.5f ? param (ids::delayMix) : 0.0f);
+    fftFifoIndex = 0;
+    fftBlockCounter = 0;
+    std::fill (fftFifo.begin(), fftFifo.end(), 0.0f);
+    std::fill (fftData.begin(), fftData.end(), 0.0f);
+    std::fill (scope.spectrum.begin(), scope.spectrum.end(), 0.0f);
+    std::fill (scope.wave.begin(), scope.wave.end(), 0.0f);
+    std::fill (scope.pitchDetected.begin(), scope.pitchDetected.end(), 0.0f);
+    std::fill (scope.pitchTarget.begin(), scope.pitchTarget.end(), 0.0f);
+    scope.waveWrite = 0;
+    scope.pitchWrite = 0;
 }
 
 bool VocalROIDZProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -64,26 +70,56 @@ bool VocalROIDZProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
     return out == layouts.getMainInputChannelSet();
 }
 
-void VocalROIDZProcessor::processDelay (juce::AudioBuffer<float>& buffer)
+void VocalROIDZProcessor::pushPitch (float detected, float target)
 {
-    const int numCh = juce::jmin (buffer.getNumChannels(), 2);
+    scope.pitchDetected[(size_t) scope.pitchWrite] = detected;
+    scope.pitchTarget[(size_t) scope.pitchWrite] = target;
+    scope.pitchWrite = (scope.pitchWrite + 1) % Scope::pitchSize;
+}
+
+void VocalROIDZProcessor::runSpectrum (const juce::AudioBuffer<float>& buffer)
+{
     const int n = buffer.getNumSamples();
+    const int ch = buffer.getNumChannels();
 
     for (int i = 0; i < n; ++i)
     {
-        const float d   = delaySamples.getNextValue();
-        const float mix = delayMix.getNextValue();
+        float mono = 0.0f;
 
-        for (int c = 0; c < numCh; ++c)
+        for (int c = 0; c < ch; ++c)
+            mono += buffer.getSample (c, i);
+
+        fftFifo[(size_t) fftFifoIndex++] = mono / (float) juce::jmax (1, ch);
+
+        if (fftFifoIndex >= (int) fftFifo.size())
         {
-            auto* data = buffer.getWritePointer (c);
-            const float in = data[i];
+            fftFifoIndex = 0;
 
-            float wet = delay.popSample (c, d);
-            wet = delayTone.processSample (c, wet);       // darkens each repeat
-            delay.pushSample (c, in + wet * delayFeedback);
+            std::copy (fftFifo.begin(), fftFifo.end(), fftData.begin());
+            std::fill (fftData.begin() + 1024, fftData.end(), 0.0f);
+            fftWindow.multiplyWithWindowingTable (fftData.data(), 1024);
+            fft.performFrequencyOnlyForwardTransform (fftData.data());
 
-            data[i] = in + wet * mix;
+            constexpr int numBins = Scope::spectrumSize;
+            const float minHz = 30.0f, maxHz = 18000.0f;
+
+            for (int i = 0; i < numBins; ++i)
+            {
+                const float f0 = minHz * std::pow (maxHz / minHz, (float) i / (float) (numBins - 1));
+                const float f1 = minHz * std::pow (maxHz / minHz, (float) (i + 1) / (float) (numBins - 1));
+                const int b0 = juce::jlimit (1, 1023, (int) (f0 / (float) currentSampleRate * 2048.0f));
+                const int b1 = juce::jlimit (b0 + 1, 1023, (int) (f1 / (float) currentSampleRate * 2048.0f));
+
+                float peak = 0.0f;
+
+                for (int b = b0; b < b1; ++b)
+                    peak = juce::jmax (peak, fftData[(size_t) b]);
+
+                const float db = juce::Decibels::gainToDecibels (peak / 512.0f, -90.0f);
+                const float norm = juce::jlimit (0.0f, 1.0f, juce::jmap (db, -90.0f, 0.0f, 0.0f, 1.0f));
+                auto& target = scope.spectrum[(size_t) i];
+                target = target + (norm - target) * 0.55f;
+            }
         }
     }
 }
@@ -96,61 +132,176 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         buffer.clear (i, 0, buffer.getNumSamples());
 
     const int n = buffer.getNumSamples();
+
+    if (n <= 0)
+        return;
+
     const float inMag = buffer.getMagnitude (0, n);
+    scope.inputLevel.store (inMag);
+    scope.wave[(size_t) scope.waveWrite] = inMag;
+    scope.waveWrite = (scope.waveWrite + 1) % Scope::waveSize;
 
     juce::dsp::AudioBlock<float> block (buffer);
     juce::dsp::ProcessContextReplacing<float> ctx (block);
 
-    if (param (ids::hpfOn) > 0.5f)
+    // ---------------------------------------------------------------- 01 Autotune Pro
+    if (isOn (ids::tuneOn))
     {
-        hpf.setCutoffFrequency (param (ids::hpfFreq));
-        hpf.process (ctx);
+        AutoTune::Settings s;
+        s.key = (int) param (ids::tuneKey);
+        s.scale = (int) param (ids::tuneScale);
+        s.retune = param (ids::tuneRetune);
+        s.humanize = param (ids::tuneHumanize);
+        s.amount = param (ids::tuneAmount);
+        s.hard = isOn (ids::tuneHard);
+
+        tuner.process (buffer, s);
+
+        const float hz = tuner.detectedHz.load();
+        const float target = tuner.targetHz.load();
+
+        if (hz > 0.0f && target > 0.0f)
+        {
+            const float dMidi = 69.0f + 12.0f * std::log2 (hz / 440.0f);
+            const float tMidi = 69.0f + 12.0f * std::log2 (target / 440.0f);
+            scope.detectedMidi.store (dMidi);
+            scope.targetMidi.store (tMidi);
+            pushPitch (dMidi, tMidi);
+        }
+        else
+        {
+            scope.detectedMidi.store (0.0f);
+            scope.targetMidi.store (0.0f);
+            pushPitch (0.0f, 0.0f);
+        }
+    }
+    else
+    {
+        scope.detectedMidi.store (0.0f);
+        scope.targetMidi.store (0.0f);
+        pushPitch (0.0f, 0.0f);
     }
 
-    float compReduction = 0.0f;
-    if (param (ids::compOn) > 0.5f)
+    // ---------------------------------------------------------------- 07 Harmony Engine
+    if (isOn (ids::harmOn))
+        harmony.process (buffer, param (ids::harmThird), param (ids::harmFifth),
+                         param (ids::harmOctUp), param (ids::harmOctDown));
+
+    // ---------------------------------------------------------------- 14 Noise Removal
+    if (isOn (ids::nrOn))
+        cleanup.process (buffer, param (ids::nrHum), param (ids::nrBreath),
+                         param (ids::nrClicks), param (ids::nrAmount));
+
+    // ---------------------------------------------------------------- 04 Noise Gate Pro
+    float gateReduction = 0.0f;
+    if (isOn (ids::gateOn))
     {
-        comp.setThreshold (param (ids::compThresh));
-        comp.setRatio (param (ids::compRatio));
-        comp.setAttack (param (ids::compAttack));
-        comp.setRelease (param (ids::compRelease));
+        gate.setParams (param (ids::gateThresh), param (ids::gateAttack), param (ids::gateHold),
+                        param (ids::gateRelease), param (ids::gateRange));
+        gateReduction = gate.process (buffer);
+    }
 
-        const float pre = buffer.getMagnitude (0, n);
-        comp.process (ctx);
-        const float post = buffer.getMagnitude (0, n);
+    // ---------------------------------------------------------------- 02 Analog EQ
+    if (isOn (ids::eqOn))
+        eq.process (buffer, param (ids::eqHpf), param (ids::eqLpf),
+                    param (ids::eqLow), param (ids::eqLowFreq),
+                    param (ids::eqMid), param (ids::eqMidFreq),
+                    param (ids::eqHigh), param (ids::eqAir));
 
-        // approximate gain reduction for the meter: level going in vs coming out (before makeup)
-        if (pre > 1.0e-4f)
-            compReduction = juce::jlimit (0.0f, 30.0f, juce::Decibels::gainToDecibels (pre)
-                                                         - juce::Decibels::gainToDecibels (post));
+    // ---------------------------------------------------------------- 03 Compressor X
+    float compReduction = 0.0f;
+    if (isOn (ids::compOn))
+    {
+        compressor.setParams (param (ids::compThresh), param (ids::compRatio), param (ids::compAttack),
+                              param (ids::compRelease), param (ids::compKnee), (int) param (ids::compModel));
+
+        compReduction = compressor.process (buffer, param (ids::compMix), (int) param (ids::compModel));
 
         makeup.setGainDecibels (param (ids::compMakeup));
         makeup.process (ctx);
     }
 
+    // ---------------------------------------------------------------- 05 Saturation Engine
+    if (isOn (ids::satOn))
+        saturation.process (buffer, (int) param (ids::satMode), param (ids::satDrive),
+                            param (ids::satWarmth), param (ids::satDensity), param (ids::satMix));
+
+    // ---------------------------------------------------------------- 13 De-Esser
     float essReduction = 0.0f;
-    if (param (ids::deessOn) > 0.5f)
+    if (isOn (ids::deessOn))
     {
         deesser.setParams (param (ids::deessFreq), param (ids::deessThresh), param (ids::deessRatio));
         deesser.process (buffer);
         essReduction = deesser.getReductionDb();
     }
 
-    // Delay always runs so toggling it off fades the mix out instead of clicking.
-    const bool delayOn = param (ids::delayOn) > 0.5f;
-    delaySamples.setTargetValue ((float) (param (ids::delayTime) * 0.001 * currentSampleRate));
-    delayMix.setTargetValue (delayOn ? param (ids::delayMix) : 0.0f);
-    delayFeedback = param (ids::delayFb);
-    delayTone.setCutoffFrequency (param (ids::delayTone));
-    processDelay (buffer);
+    // ---------------------------------------------------------------- 11 Auto Chop-N-Screw
+    if (isOn (ids::chopOn))
+        chopScrew.process (buffer, (int) param (ids::chopMode), param (ids::chopPitch),
+                           param (ids::chopSlow), param (ids::chopDensity), param (ids::chopRepeat),
+                           param (ids::chopDrift), param (ids::chopMix));
+
+    // ---------------------------------------------------------------- 10 Hyper Stutter
+    if (isOn (ids::stutOn))
+        stutter.process (buffer, (int) param (ids::stutMode), param (ids::stutSlice),
+                         param (ids::stutRate), param (ids::stutReverse), param (ids::stutRandom),
+                         param (ids::stutPitch), param (ids::stutMix));
+
+    // ---------------------------------------------------------------- 06 Vocal Doubler
+    if (isOn (ids::dblOn))
+        doubler.process (buffer, param (ids::dblAmount), param (ids::dblWidth),
+                         param (ids::dblHuman), param (ids::dblPitch));
+
+    // ---------------------------------------------------------------- 12 Stereo Imager
+    if (isOn (ids::stereoOn))
+        imager.process (buffer, param (ids::stereoWidth), param (ids::stereoBass),
+                        param (ids::stereoBalance));
+
+    // ---------------------------------------------------------------- 15 Creative FX Lab
+    if (isOn (ids::fxOn))
+        creative.process (buffer, (int) param (ids::fxType), param (ids::fxAmount),
+                          param (ids::fxTone), param (ids::fxMix));
+
+    // ---------------------------------------------------------------- 09 Delay Lab
+    if (isOn (ids::dlyOn))
+        delayLab.process (buffer, (int) param (ids::dlyMode), param (ids::dlyTime),
+                          param (ids::dlyFb), param (ids::dlyTone), param (ids::dlyWidth),
+                          param (ids::dlyMix));
+
+    // ---------------------------------------------------------------- 08 Reverb Space
+    if (isOn (ids::revOn))
+        reverbSpace.process (buffer, (int) param (ids::revAlgo), param (ids::revDecay),
+                             param (ids::revPredelay), param (ids::revWidth), param (ids::revTone),
+                             param (ids::revMod), param (ids::revMix));
+
+    // ---------------------------------------------------------------- 16 Master Finish
+    masterFinish.process (buffer, isOn (ids::masterOn), param (ids::masterLoud),
+                          param (ids::masterPunch), param (ids::masterWarmth),
+                          param (ids::masterAir), param (ids::masterGlue),
+                          param (ids::masterCeiling));
 
     outGain.setGainDecibels (param (ids::outGain));
     outGain.process (ctx);
 
-    holdMax (meterIn,   inMag,                       0.85f);
-    holdMax (meterOut,  buffer.getMagnitude (0, n),  0.85f);
-    holdMax (meterComp, compReduction,               0.90f);
-    holdMax (meterEss,  essReduction,                0.90f);
+    const float outMag = buffer.getMagnitude (0, n);
+
+    scope.outputLevel.store (outMag);
+    scope.compReduction.store (compReduction);
+    scope.gateReduction.store (gateReduction);
+    scope.essReduction.store (essReduction);
+    scope.lufs.store (masterFinish.getLufs());
+    scope.correlation.store (masterFinish.getCorrelation());
+
+    meterIn.store (inMag);
+    meterOut.store (outMag);
+    meterComp.store (compReduction);
+    meterEss.store (essReduction);
+
+    if (++fftBlockCounter >= 4)
+    {
+        fftBlockCounter = 0;
+        runSpectrum (buffer);
+    }
 }
 
 void VocalROIDZProcessor::setCurrentProgram (int index)

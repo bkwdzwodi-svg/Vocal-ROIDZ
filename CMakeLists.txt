@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(VocalROIDZ VERSION 1.0.0 LANGUAGES C CXX)
+project(VocalROIDZ VERSION 2.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ juce_add_plugin(VocalROIDZ
     PLUGIN_MANUFACTURER_CODE Bkwd
     PLUGIN_CODE Vrdz
     PRODUCT_NAME "Vocal ROIDZ"
-    DESCRIPTION "All-in-one vocal chain with style presets"
+    DESCRIPTION "All-in-one vocal production workstation"
     FORMATS VST3 Standalone AU
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE

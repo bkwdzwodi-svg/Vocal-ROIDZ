@@ -14,141 +14,231 @@ namespace presets
     {
         static const std::vector<Factory> list =
         {
-            // ---------------------------------------------------------------- lead vocals
-            { "Lead Vocals", "Clean Lead", {
-                { ids::hpfFreq, 80.f },
-                { ids::compThresh, -20.f }, { ids::compRatio, 3.f }, { ids::compAttack, 15.f },
-                { ids::compRelease, 120.f }, { ids::compMakeup, 3.f },
-                { ids::deessFreq, 7000.f }, { ids::deessThresh, -30.f }, { ids::deessRatio, 3.f } } },
+            // ============================================================ genre presets
+            { "Genre Presets", "Melodic Trap", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 0.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.55f }, { ids::tuneHumanize, 0.35f }, { ids::tuneAmount, 0.9f },
+                { ids::eqHpf, 95.f }, { ids::eqLow, 2.f }, { ids::eqMid, 1.f }, { ids::eqMidFreq, 2500.f },
+                { ids::eqHigh, 2.5f }, { ids::eqAir, 4.f },
+                { ids::compThresh, -22.f }, { ids::compRatio, 3.5f }, { ids::compAttack, 8.f },
+                { ids::compRelease, 110.f }, { ids::compMakeup, 4.f },
+                { ids::satDrive, 5.f }, { ids::satWarmth, 0.3f }, { ids::satMix, 0.45f },
+                { ids::deessThresh, -32.f }, { ids::deessRatio, 4.f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.3f }, { ids::dblWidth, 0.7f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 1.f }, { ids::revDecay, 0.5f },
+                { ids::revPredelay, 25.f }, { ids::revWidth, 0.9f }, { ids::revTone, 6500.f }, { ids::revMix, 0.18f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 0.f }, { ids::dlyTime, 280.f },
+                { ids::dlyFb, 0.3f }, { ids::dlyTone, 5000.f }, { ids::dlyMix, 0.15f },
+                { ids::stereoWidth, 1.15f },
+                { ids::masterLoud, 1.5f }, { ids::masterPunch, 0.35f }, { ids::masterAir, 0.4f } } },
 
-            { "Lead Vocals", "Pop Lead - Bright and Wide", {
-                { ids::hpfFreq, 100.f },
-                { ids::compThresh, -22.f }, { ids::compRatio, 4.f }, { ids::compAttack, 8.f },
-                { ids::compRelease, 90.f }, { ids::compMakeup, 4.f },
-                { ids::deessFreq, 7500.f }, { ids::deessThresh, -32.f }, { ids::deessRatio, 4.f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 250.f }, { ids::delayFb, 0.3f },
-                { ids::delayTone, 5000.f }, { ids::delayMix, 0.14f } } },
+            { "Genre Presets", "Dark Trap", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 8.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.35f }, { ids::tuneHumanize, 0.2f }, { ids::tuneAmount, 1.f },
+                { ids::eqHpf, 80.f }, { ids::eqLow, 2.5f }, { ids::eqMid, -2.f }, { ids::eqMidFreq, 650.f },
+                { ids::eqHigh, -1.f }, { ids::eqAir, 1.f },
+                { ids::compThresh, -24.f }, { ids::compRatio, 4.f }, { ids::compAttack, 6.f }, { ids::compMakeup, 4.5f },
+                { ids::satMode, 2.f }, { ids::satDrive, 7.f }, { ids::satWarmth, 0.5f }, { ids::satMix, 0.5f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 1.f }, { ids::revDecay, 0.65f }, { ids::revTone, 3400.f }, { ids::revMix, 0.24f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 1.f }, { ids::dlyTime, 375.f }, { ids::dlyFb, 0.4f },
+                { ids::dlyTone, 3000.f }, { ids::dlyMix, 0.2f },
+                { ids::masterWarmth, 0.5f }, { ids::masterLoud, 1.f }, { ids::masterPunch, 0.3f } } },
 
-            { "Lead Vocals", "Rock Lead - Aggressive", {
-                { ids::hpfFreq, 105.f },
-                { ids::compThresh, -24.f }, { ids::compRatio, 6.f }, { ids::compAttack, 5.f },
-                { ids::compRelease, 80.f }, { ids::compMakeup, 6.f },
-                { ids::deessFreq, 6500.f }, { ids::deessThresh, -26.f }, { ids::deessRatio, 3.f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 220.f }, { ids::delayFb, 0.25f },
-                { ids::delayTone, 4500.f }, { ids::delayMix, 0.10f },
-                { ids::outGain, -1.f } } },
+            { "Genre Presets", "Emo Rap", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 4.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.3f }, { ids::tuneHumanize, 0.5f }, { ids::tuneAmount, 0.7f },
+                { ids::eqHpf, 110.f }, { ids::eqLow, 1.f }, { ids::eqMid, 2.f }, { ids::eqMidFreq, 3000.f }, { ids::eqAir, 3.f },
+                { ids::compThresh, -20.f }, { ids::compRatio, 3.f }, { ids::compAttack, 15.f }, { ids::compMakeup, 3.f },
+                { ids::satMode, 1.f }, { ids::satDrive, 4.f }, { ids::satWarmth, 0.35f }, { ids::satMix, 0.4f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.4f }, { ids::dblWidth, 0.8f }, { ids::dblHuman, 0.6f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 2.f }, { ids::revDecay, 0.6f }, { ids::revMix, 0.22f },
+                { ids::dlyOn, 1.f }, { ids::dlyTime, 320.f }, { ids::dlyFb, 0.32f }, { ids::dlyMix, 0.18f },
+                { ids::masterPunch, 0.3f }, { ids::masterAir, 0.35f } } },
 
-            { "Lead Vocals", "R&B Lead - Silky", {
-                { ids::hpfFreq, 90.f },
-                { ids::compThresh, -18.f }, { ids::compRatio, 2.5f }, { ids::compAttack, 25.f },
-                { ids::compRelease, 160.f }, { ids::compMakeup, 2.5f },
-                { ids::deessFreq, 7200.f }, { ids::deessThresh, -30.f }, { ids::deessRatio, 3.5f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 300.f }, { ids::delayFb, 0.28f },
-                { ids::delayTone, 4000.f }, { ids::delayMix, 0.12f } } },
+            { "Genre Presets", "Rage", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 2.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.8f }, { ids::tuneHumanize, 0.1f }, { ids::tuneAmount, 1.f },
+                { ids::eqHpf, 120.f }, { ids::eqLow, 3.f }, { ids::eqMid, 1.5f }, { ids::eqHigh, 3.f }, { ids::eqAir, 5.f },
+                { ids::compThresh, -26.f }, { ids::compRatio, 5.f }, { ids::compAttack, 3.f }, { ids::compMakeup, 5.f },
+                { ids::satMode, 5.f }, { ids::satDrive, 9.f }, { ids::satMix, 0.45f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.35f }, { ids::dblWidth, 0.9f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 3.f }, { ids::revDecay, 0.6f }, { ids::revMix, 0.2f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 250.f }, { ids::dlyMix, 0.16f },
+                { ids::masterLoud, 2.f }, { ids::masterPunch, 0.45f }, { ids::masterAir, 0.4f } } },
 
-            { "Lead Vocals", "Country Lead - Natural", {
-                { ids::hpfFreq, 95.f },
-                { ids::compThresh, -16.f }, { ids::compRatio, 2.5f }, { ids::compAttack, 20.f },
-                { ids::compRelease, 140.f }, { ids::compMakeup, 2.f },
-                { ids::deessFreq, 6800.f }, { ids::deessThresh, -26.f }, { ids::deessRatio, 2.5f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 160.f }, { ids::delayFb, 0.18f },
-                { ids::delayTone, 6000.f }, { ids::delayMix, 0.08f } } },
+            { "Genre Presets", "Hyperpop", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 0.f }, { ids::tuneScale, 0.f },
+                { ids::tuneRetune, 0.85f }, { ids::tuneHumanize, 0.1f }, { ids::tuneAmount, 1.f },
+                { ids::eqHpf, 130.f }, { ids::eqLow, -1.f }, { ids::eqMid, 2.f }, { ids::eqMidFreq, 4000.f },
+                { ids::eqHigh, 3.f }, { ids::eqAir, 6.f },
+                { ids::compThresh, -24.f }, { ids::compRatio, 5.f }, { ids::compAttack, 2.f }, { ids::compMakeup, 5.f },
+                { ids::satMode, 3.f }, { ids::satDrive, 6.f }, { ids::satMix, 0.35f },
+                { ids::stutOn, 1.f }, { ids::stutMode, 2.f }, { ids::stutSlice, 75.f }, { ids::stutRate, 10.f },
+                { ids::stutRandom, 0.3f }, { ids::stutMix, 0.4f },
+                { ids::fxOn, 1.f }, { ids::fxType, 6.f }, { ids::fxAmount, 0.3f }, { ids::fxMix, 0.25f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 5.f }, { ids::revDecay, 0.7f }, { ids::revMix, 0.25f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 190.f }, { ids::dlyFb, 0.4f }, { ids::dlyMix, 0.22f },
+                { ids::masterLoud, 2.f }, { ids::masterAir, 0.6f }, { ids::masterPunch, 0.5f } } },
 
-            { "Lead Vocals", "Gospel Lead - Powerful", {
-                { ids::hpfFreq, 85.f },
-                { ids::compThresh, -26.f }, { ids::compRatio, 5.f }, { ids::compAttack, 6.f },
-                { ids::compRelease, 100.f }, { ids::compMakeup, 6.f },
-                { ids::deessFreq, 7000.f }, { ids::deessThresh, -28.f }, { ids::deessRatio, 3.f },
-                { ids::outGain, -1.f } } },
+            { "Genre Presets", "Drill", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 3.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.6f }, { ids::tuneHumanize, 0.2f }, { ids::tuneAmount, 0.95f },
+                { ids::eqHpf, 100.f }, { ids::eqLow, 2.f }, { ids::eqMid, -1.f }, { ids::eqMidFreq, 800.f }, { ids::eqAir, 3.f },
+                { ids::compThresh, -26.f }, { ids::compRatio, 5.f }, { ids::compAttack, 4.f }, { ids::compRelease, 80.f }, { ids::compMakeup, 5.f },
+                { ids::satMode, 0.f }, { ids::satDrive, 6.f }, { ids::satMix, 0.45f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.25f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 0.f }, { ids::revDecay, 0.35f }, { ids::revMix, 0.15f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 220.f }, { ids::dlyFb, 0.28f }, { ids::dlyMix, 0.14f },
+                { ids::masterPunch, 0.5f }, { ids::masterLoud, 1.5f } } },
 
-            // ------------------------------------------------------------ rap and ad-libs
-            { "Rap and Ad-libs", "Rap Lead - Tight", {
-                { ids::hpfFreq, 90.f },
-                { ids::compThresh, -24.f }, { ids::compRatio, 4.5f }, { ids::compAttack, 5.f },
-                { ids::compRelease, 70.f }, { ids::compMakeup, 5.f },
-                { ids::deessFreq, 6500.f }, { ids::deessThresh, -30.f }, { ids::deessRatio, 4.f } } },
+            { "Genre Presets", "Alternative Hip-Hop", {
+                { ids::tuneOn, 1.f }, { ids::tuneScale, 1.f }, { ids::tuneRetune, 0.25f },
+                { ids::tuneHumanize, 0.65f }, { ids::tuneAmount, 0.5f },
+                { ids::eqHpf, 90.f }, { ids::eqLow, 2.f }, { ids::eqMid, 1.f }, { ids::eqMidFreq, 1200.f }, { ids::eqHigh, -2.f }, { ids::eqAir, 1.f },
+                { ids::compThresh, -18.f }, { ids::compRatio, 2.5f }, { ids::compAttack, 25.f }, { ids::compMakeup, 2.f },
+                { ids::satMode, 1.f }, { ids::satDrive, 5.f }, { ids::satWarmth, 0.4f }, { ids::satMix, 0.5f },
+                { ids::fxOn, 1.f }, { ids::fxType, 2.f }, { ids::fxAmount, 0.25f }, { ids::fxMix, 0.25f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 4.f }, { ids::revDecay, 0.55f }, { ids::revTone, 4200.f }, { ids::revMix, 0.2f },
+                { ids::masterWarmth, 0.45f }, { ids::masterPunch, 0.25f } } },
 
-            { "Rap and Ad-libs", "Trap Ad-lib - Slapback", {
-                { ids::hpfFreq, 160.f },
-                { ids::compThresh, -24.f }, { ids::compRatio, 5.f }, { ids::compAttack, 4.f },
-                { ids::compRelease, 60.f }, { ids::compMakeup, 5.f },
-                { ids::deessFreq, 6500.f }, { ids::deessThresh, -30.f }, { ids::deessRatio, 4.f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 90.f }, { ids::delayFb, 0.2f },
-                { ids::delayTone, 4000.f }, { ids::delayMix, 0.22f } } },
+            { "Genre Presets", "Singing Vocals", {
+                { ids::tuneOn, 1.f }, { ids::tuneScale, 0.f }, { ids::tuneRetune, 0.3f },
+                { ids::tuneHumanize, 0.6f }, { ids::tuneAmount, 0.6f },
+                { ids::eqHpf, 85.f }, { ids::eqLow, 1.5f }, { ids::eqMid, 0.5f }, { ids::eqHigh, 2.f }, { ids::eqAir, 3.f },
+                { ids::compThresh, -20.f }, { ids::compRatio, 3.f }, { ids::compAttack, 18.f }, { ids::compRelease, 140.f }, { ids::compMakeup, 3.f },
+                { ids::satDrive, 3.f }, { ids::satMix, 0.3f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.3f }, { ids::dblWidth, 0.75f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 1.f }, { ids::revDecay, 0.55f }, { ids::revPredelay, 30.f }, { ids::revMix, 0.2f },
+                { ids::dlyOn, 1.f }, { ids::dlyTime, 300.f }, { ids::dlyFb, 0.28f }, { ids::dlyMix, 0.12f },
+                { ids::masterPunch, 0.25f }, { ids::masterAir, 0.3f } } },
 
-            { "Rap and Ad-libs", "Ad-libs - Big Echo", {
-                { ids::hpfFreq, 150.f },
-                { ids::compThresh, -20.f }, { ids::compRatio, 3.5f }, { ids::compAttack, 10.f },
-                { ids::compRelease, 100.f }, { ids::compMakeup, 3.f },
-                { ids::deessFreq, 7000.f }, { ids::deessThresh, -30.f }, { ids::deessRatio, 3.f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 375.f }, { ids::delayFb, 0.45f },
-                { ids::delayTone, 3500.f }, { ids::delayMix, 0.30f },
-                { ids::outGain, -2.f } } },
+            { "Genre Presets", "Pop Vocals", {
+                { ids::tuneOn, 1.f }, { ids::tuneRetune, 0.45f }, { ids::tuneHumanize, 0.4f }, { ids::tuneAmount, 0.8f },
+                { ids::eqHpf, 100.f }, { ids::eqLow, 0.5f }, { ids::eqMid, 1.5f }, { ids::eqMidFreq, 3500.f }, { ids::eqHigh, 3.f }, { ids::eqAir, 5.f },
+                { ids::compThresh, -22.f }, { ids::compRatio, 4.f }, { ids::compAttack, 6.f }, { ids::compMakeup, 4.f },
+                { ids::satMode, 3.f }, { ids::satDrive, 3.f }, { ids::satMix, 0.25f },
+                { ids::deessThresh, -34.f }, { ids::deessRatio, 5.f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.35f }, { ids::dblWidth, 0.9f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 2.f }, { ids::revDecay, 0.45f }, { ids::revMix, 0.16f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 260.f }, { ids::dlyMix, 0.14f },
+                { ids::masterLoud, 1.5f }, { ids::masterAir, 0.5f }, { ids::masterPunch, 0.35f } } },
 
-            // ----------------------------------------------------- backgrounds and choirs
-            { "Backgrounds and Choir", "Background Vocals - Smooth", {
-                { ids::hpfFreq, 140.f },
-                { ids::compThresh, -18.f }, { ids::compRatio, 2.5f }, { ids::compAttack, 20.f },
-                { ids::compRelease, 150.f }, { ids::compMakeup, 2.f },
-                { ids::deessFreq, 6500.f }, { ids::deessThresh, -26.f }, { ids::deessRatio, 3.f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 180.f }, { ids::delayFb, 0.2f },
-                { ids::delayTone, 3000.f }, { ids::delayMix, 0.10f },
-                { ids::outGain, -3.f } } },
-
-            { "Backgrounds and Choir", "Choir Stack - Soft", {
-                { ids::hpfFreq, 150.f },
-                { ids::compThresh, -14.f }, { ids::compRatio, 2.f }, { ids::compAttack, 30.f },
-                { ids::compRelease, 200.f }, { ids::compMakeup, 2.f },
-                { ids::deessFreq, 6200.f }, { ids::deessThresh, -24.f }, { ids::deessRatio, 2.5f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 120.f }, { ids::delayFb, 0.15f },
-                { ids::delayTone, 3000.f }, { ids::delayMix, 0.09f },
-                { ids::outGain, -4.f } } },
-
-            // --------------------------------------------------------------- spoken word
-            { "Broadcast and Voice", "Podcast - Broadcast Clear", {
-                { ids::hpfFreq, 100.f },
-                { ids::compThresh, -28.f }, { ids::compRatio, 4.f }, { ids::compAttack, 3.f },
-                { ids::compRelease, 120.f }, { ids::compMakeup, 6.f },
+            { "Genre Presets", "Podcast Voice", {
+                { ids::tuneOn, 0.f },
+                { ids::eqHpf, 100.f }, { ids::eqLpf, 16000.f }, { ids::eqLow, -1.f }, { ids::eqMid, 2.f },
+                { ids::eqMidFreq, 2600.f }, { ids::eqHigh, 1.f }, { ids::eqAir, 2.f },
+                { ids::compThresh, -26.f }, { ids::compRatio, 4.f }, { ids::compAttack, 3.f }, { ids::compRelease, 120.f }, { ids::compMakeup, 6.f },
                 { ids::deessFreq, 8000.f }, { ids::deessThresh, -34.f }, { ids::deessRatio, 5.f },
-                { ids::outGain, -1.f } } },
+                { ids::gateOn, 1.f }, { ids::gateThresh, -50.f },
+                { ids::nrHum, 0.5f }, { ids::nrBreath, 0.4f }, { ids::nrClicks, 0.4f },
+                { ids::masterLoud, 2.f }, { ids::masterPunch, 0.2f }, { ids::masterGlue, 0.4f } } },
 
-            { "Broadcast and Voice", "Voiceover - Warm and Close", {
-                { ids::hpfFreq, 70.f },
-                { ids::compThresh, -22.f }, { ids::compRatio, 3.f }, { ids::compAttack, 10.f },
-                { ids::compRelease, 150.f }, { ids::compMakeup, 4.f },
-                { ids::deessFreq, 7500.f }, { ids::deessThresh, -32.f }, { ids::deessRatio, 4.f } } },
+            { "Genre Presets", "Broadcast Voice", {
+                { ids::tuneOn, 0.f },
+                { ids::eqHpf, 90.f }, { ids::eqLow, 0.5f }, { ids::eqMid, 1.5f }, { ids::eqMidFreq, 3000.f },
+                { ids::eqHigh, 1.5f }, { ids::eqAir, 3.f },
+                { ids::compThresh, -30.f }, { ids::compRatio, 6.f }, { ids::compAttack, 2.f }, { ids::compRelease, 90.f }, { ids::compMakeup, 8.f },
+                { ids::deessFreq, 8500.f }, { ids::deessThresh, -36.f }, { ids::deessRatio, 6.f },
+                { ids::gateOn, 1.f }, { ids::gateThresh, -52.f },
+                { ids::nrHum, 0.6f }, { ids::nrBreath, 0.5f }, { ids::nrClicks, 0.5f },
+                { ids::satWarmth, 0.25f }, { ids::satMix, 0.2f },
+                { ids::masterLoud, 3.f }, { ids::masterGlue, 0.5f }, { ids::masterCeiling, -1.f } } },
 
-            { "Broadcast and Voice", "Whisper / ASMR - Intimate", {
-                { ids::hpfFreq, 120.f },
-                { ids::compThresh, -24.f }, { ids::compRatio, 4.f }, { ids::compAttack, 8.f },
-                { ids::compRelease, 200.f }, { ids::compMakeup, 7.f },
-                { ids::deessFreq, 6000.f }, { ids::deessThresh, -24.f }, { ids::deessRatio, 3.f },
-                { ids::outGain, -2.f } } },
+            // ========================================================= signature presets
+            { "Signature Presets", "BKWDZ Signature", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 0.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.5f }, { ids::tuneHumanize, 0.3f }, { ids::tuneAmount, 0.85f },
+                { ids::eqHpf, 95.f }, { ids::eqLow, 2.f }, { ids::eqMid, 1.f }, { ids::eqMidFreq, 2800.f },
+                { ids::eqHigh, 2.f }, { ids::eqAir, 4.f },
+                { ids::compModel, 1.f }, { ids::compThresh, -24.f }, { ids::compRatio, 4.f },
+                { ids::compAttack, 5.f }, { ids::compRelease, 90.f }, { ids::compMakeup, 4.5f },
+                { ids::satMode, 0.f }, { ids::satDrive, 6.f }, { ids::satWarmth, 0.4f }, { ids::satMix, 0.5f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.35f }, { ids::dblWidth, 0.8f },
+                { ids::dlyOn, 1.f }, { ids::dlyTime, 290.f }, { ids::dlyFb, 0.32f }, { ids::dlyMix, 0.16f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 1.f }, { ids::revDecay, 0.55f }, { ids::revMix, 0.2f },
+                { ids::masterLoud, 2.f }, { ids::masterPunch, 0.4f }, { ids::masterWarmth, 0.35f },
+                { ids::masterAir, 0.4f }, { ids::masterGlue, 0.35f } } },
 
-            // -------------------------------------------------------------- creative FX
-            { "Creative FX", "EDM Topline - Air and Space", {
-                { ids::hpfFreq, 120.f },
-                { ids::compThresh, -20.f }, { ids::compRatio, 3.5f }, { ids::compAttack, 10.f },
-                { ids::compRelease, 110.f }, { ids::compMakeup, 3.5f },
-                { ids::deessFreq, 8000.f }, { ids::deessThresh, -32.f }, { ids::deessRatio, 4.5f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 380.f }, { ids::delayFb, 0.5f },
-                { ids::delayTone, 6000.f }, { ids::delayMix, 0.30f } } },
+            { "Signature Presets", "Dream Vocal", {
+                { ids::tuneOn, 1.f }, { ids::tuneScale, 1.f }, { ids::tuneRetune, 0.25f },
+                { ids::tuneHumanize, 0.55f }, { ids::tuneAmount, 0.6f },
+                { ids::eqHpf, 120.f }, { ids::eqLow, -1.f }, { ids::eqHigh, 3.f }, { ids::eqAir, 6.f },
+                { ids::compThresh, -18.f }, { ids::compRatio, 2.5f }, { ids::compAttack, 22.f }, { ids::compMakeup, 2.5f },
+                { ids::satMode, 4.f }, { ids::satWarmth, 0.5f }, { ids::satMix, 0.35f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.55f }, { ids::dblWidth, 1.f }, { ids::dblHuman, 0.7f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 5.f }, { ids::revDecay, 0.85f }, { ids::revPredelay, 35.f },
+                { ids::revWidth, 1.f }, { ids::revTone, 5200.f }, { ids::revMod, 0.5f }, { ids::revMix, 0.37f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 1.f }, { ids::dlyTime, 420.f }, { ids::dlyFb, 0.42f },
+                { ids::dlyTone, 3500.f }, { ids::dlyMix, 0.2f },
+                { ids::masterAir, 0.55f }, { ids::masterWarmth, 0.3f }, { ids::masterLoud, 1.f } } },
 
-            { "Creative FX", "Lo-Fi Tape - Old School", {
-                { ids::hpfFreq, 220.f },
-                { ids::compThresh, -20.f }, { ids::compRatio, 4.f }, { ids::compAttack, 12.f },
-                { ids::compRelease, 90.f }, { ids::compMakeup, 3.f },
-                { ids::deessFreq, 5500.f }, { ids::deessThresh, -22.f }, { ids::deessRatio, 2.5f },
-                { ids::delayOn, 1.f }, { ids::delayTime, 320.f }, { ids::delayFb, 0.35f },
-                { ids::delayTone, 1800.f }, { ids::delayMix, 0.22f },
-                { ids::outGain, -3.f } } },
+            { "Signature Presets", "Dark Atmosphere", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 10.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.2f }, { ids::tuneHumanize, 0.4f }, { ids::tuneAmount, 0.8f },
+                { ids::eqHpf, 70.f }, { ids::eqLpf, 9000.f }, { ids::eqLow, 3.f }, { ids::eqMid, -3.f },
+                { ids::eqMidFreq, 700.f }, { ids::eqHigh, -3.f }, { ids::eqAir, 0.f },
+                { ids::compThresh, -20.f }, { ids::compRatio, 3.f }, { ids::compAttack, 20.f }, { ids::compMakeup, 3.f },
+                { ids::satMode, 2.f }, { ids::satDrive, 8.f }, { ids::satWarmth, 0.6f }, { ids::satMix, 0.55f },
+                { ids::chopOn, 1.f }, { ids::chopMode, 3.f }, { ids::chopPitch, -4.f }, { ids::chopSlow, 0.45f },
+                { ids::chopMix, 0.55f },
+                { ids::fxOn, 1.f }, { ids::fxType, 2.f }, { ids::fxAmount, 0.2f }, { ids::fxMix, 0.2f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 6.f }, { ids::revDecay, 0.9f }, { ids::revTone, 3200.f }, { ids::revMix, 0.32f },
+                { ids::masterWarmth, 0.5f }, { ids::masterAir, 0.1f }, { ids::masterLoud, 0.5f } } },
 
-            { "Creative FX", "Live Stage - Feedback Safe", {
-                { ids::hpfFreq, 140.f },
-                { ids::compThresh, -22.f }, { ids::compRatio, 4.f }, { ids::compAttack, 6.f },
-                { ids::compRelease, 70.f }, { ids::compMakeup, 4.f },
-                { ids::deessFreq, 7000.f }, { ids::deessThresh, -30.f }, { ids::deessRatio, 4.f },
-                { ids::outGain, -2.f } } },
+            { "Signature Presets", "Arena Vocal", {
+                { ids::tuneOn, 1.f }, { ids::tuneRetune, 0.5f }, { ids::tuneHumanize, 0.35f }, { ids::tuneAmount, 0.85f },
+                { ids::eqHpf, 110.f }, { ids::eqLow, 1.f }, { ids::eqMid, 1.f }, { ids::eqHigh, 3.f }, { ids::eqAir, 5.f },
+                { ids::compThresh, -24.f }, { ids::compRatio, 4.f }, { ids::compAttack, 6.f }, { ids::compMakeup, 4.f },
+                { ids::satDrive, 4.f }, { ids::satMix, 0.35f },
+                { ids::dblOn, 1.f }, { ids::dblAmount, 0.45f }, { ids::dblWidth, 1.f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 3.f }, { ids::revDecay, 0.75f }, { ids::revPredelay, 45.f },
+                { ids::revWidth, 1.f }, { ids::revMix, 0.3f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 480.f }, { ids::dlyFb, 0.38f }, { ids::dlyMix, 0.2f },
+                { ids::masterLoud, 2.f }, { ids::masterPunch, 0.45f }, { ids::masterAir, 0.5f } } },
+
+            { "Signature Presets", "Heavy Auto-Tune", {
+                { ids::tuneOn, 1.f }, { ids::tuneScale, 1.f }, { ids::tuneRetune, 1.f },
+                { ids::tuneHumanize, 0.f }, { ids::tuneAmount, 1.f }, { ids::tuneHard, 1.f },
+                { ids::eqHpf, 110.f }, { ids::eqLow, 2.f }, { ids::eqMid, 2.f }, { ids::eqHigh, 3.f }, { ids::eqAir, 4.f },
+                { ids::compThresh, -24.f }, { ids::compRatio, 5.f }, { ids::compAttack, 3.f }, { ids::compMakeup, 5.f },
+                { ids::satMode, 3.f }, { ids::satDrive, 5.f }, { ids::satMix, 0.35f },
+                { ids::deessThresh, -34.f }, { ids::deessRatio, 5.f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 1.f }, { ids::revDecay, 0.5f }, { ids::revMix, 0.16f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 240.f }, { ids::dlyMix, 0.14f },
+                { ids::masterLoud, 2.f }, { ids::masterPunch, 0.4f } } },
+
+            { "Signature Presets", "Natural Auto-Tune", {
+                { ids::tuneOn, 1.f }, { ids::tuneScale, 0.f }, { ids::tuneRetune, 0.25f },
+                { ids::tuneHumanize, 0.75f }, { ids::tuneAmount, 0.45f },
+                { ids::eqHpf, 85.f }, { ids::eqLow, 1.f }, { ids::eqHigh, 1.5f }, { ids::eqAir, 2.f },
+                { ids::compThresh, -16.f }, { ids::compRatio, 2.f }, { ids::compAttack, 25.f }, { ids::compMakeup, 2.f },
+                { ids::deessThresh, -28.f }, { ids::deessRatio, 2.5f },
+                { ids::satWarmth, 0.2f }, { ids::satMix, 0.2f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 0.f }, { ids::revDecay, 0.3f }, { ids::revMix, 0.1f },
+                { ids::masterLoud, 0.5f }, { ids::masterGlue, 0.25f } } },
+
+            { "Signature Presets", "Texas Screw Vocal", {
+                { ids::tuneOn, 1.f }, { ids::tuneKey, 5.f }, { ids::tuneScale, 1.f },
+                { ids::tuneRetune, 0.35f }, { ids::tuneHumanize, 0.3f }, { ids::tuneAmount, 0.9f },
+                { ids::eqHpf, 70.f }, { ids::eqLow, 3.f }, { ids::eqMid, -1.f }, { ids::eqMidFreq, 900.f }, { ids::eqAir, 0.5f },
+                { ids::compThresh, -26.f }, { ids::compRatio, 5.f }, { ids::compAttack, 10.f }, { ids::compMakeup, 5.f },
+                { ids::satMode, 1.f }, { ids::satDrive, 7.f }, { ids::satWarmth, 0.55f }, { ids::satMix, 0.55f },
+                { ids::chopOn, 1.f }, { ids::chopMode, 1.f }, { ids::chopPitch, -3.f }, { ids::chopSlow, 0.5f },
+                { ids::chopDensity, 0.5f }, { ids::chopRepeat, 0.6f }, { ids::chopDrift, 0.6f }, { ids::chopMix, 0.85f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 1.f }, { ids::dlyTime, 400.f }, { ids::dlyFb, 0.35f },
+                { ids::dlyTone, 2600.f }, { ids::dlyMix, 0.18f },
+                { ids::masterWarmth, 0.55f }, { ids::masterLoud, 1.f } } },
+
+            { "Signature Presets", "Hyper Stutter Trap", {
+                { ids::tuneOn, 1.f }, { ids::tuneRetune, 0.75f }, { ids::tuneHumanize, 0.15f }, { ids::tuneAmount, 0.95f },
+                { ids::eqHpf, 120.f }, { ids::eqLow, 1.f }, { ids::eqMid, 1.5f }, { ids::eqAir, 5.f },
+                { ids::compThresh, -26.f }, { ids::compRatio, 5.f }, { ids::compAttack, 4.f }, { ids::compMakeup, 5.f },
+                { ids::satMode, 5.f }, { ids::satDrive, 6.f }, { ids::satMix, 0.35f },
+                { ids::stutOn, 1.f }, { ids::stutMode, 1.f }, { ids::stutSlice, 70.f }, { ids::stutRate, 12.f },
+                { ids::stutRandom, 0.4f }, { ids::stutMix, 0.55f },
+                { ids::dlyOn, 1.f }, { ids::dlyMode, 2.f }, { ids::dlyTime, 180.f }, { ids::dlyFb, 0.42f }, { ids::dlyMix, 0.2f },
+                { ids::revOn, 1.f }, { ids::revAlgo, 0.f }, { ids::revDecay, 0.3f }, { ids::revMix, 0.12f },
+                { ids::masterLoud, 2.f }, { ids::masterPunch, 0.5f }, { ids::masterAir, 0.45f } } },
         };
         return list;
     }
