@@ -16,6 +16,10 @@ VocalROIDZProcessor::VocalROIDZProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "STATE", createLayout())
 {
+    // Program 0 is what the host shows at instantiation, so start the chain on it
+    // rather than on bare parameter defaults.
+    if (! presets::factory().empty())
+        presets::apply (apvts, presets::factory().front().params);
 }
 
 float VocalROIDZProcessor::param (const char* id) const
@@ -149,6 +153,30 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     holdMax (meterEss,  essReduction,                0.90f);
 }
 
+void VocalROIDZProcessor::setCurrentProgram (int index)
+{
+    const auto& list = presets::factory();
+
+    if (index < 0 || index >= (int) list.size())
+        return;
+
+    currentProgram = index;
+    presets::apply (apvts, list[(size_t) index].params);
+
+    // Let the host redraw its program name when the change came from our editor.
+    updateHostDisplay (juce::AudioProcessorListener::ChangeDetails().withProgramChanged (true));
+}
+
+const juce::String VocalROIDZProcessor::getProgramName (int index)
+{
+    const auto& list = presets::factory();
+
+    if (index < 0 || index >= (int) list.size())
+        return {};
+
+    return list[(size_t) index].name;
+}
+
 juce::AudioProcessorEditor* VocalROIDZProcessor::createEditor()
 {
     return new VocalROIDZEditor (*this);
@@ -156,7 +184,10 @@ juce::AudioProcessorEditor* VocalROIDZProcessor::createEditor()
 
 void VocalROIDZProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    auto state = apvts.copyState();
+    state.setProperty (currentProgramProperty, currentProgram, nullptr);
+
+    if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -164,7 +195,17 @@ void VocalROIDZProcessor::setStateInformation (const void* data, int sizeInBytes
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
-            apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        {
+            auto state = juce::ValueTree::fromXml (*xml);
+
+            // Restore the program index without re-applying it: the saved parameters
+            // already hold exactly what the user heard.
+            const int savedProgram = (int) state.getProperty (currentProgramProperty, 0);
+            currentProgram = juce::jlimit (0, (int) presets::factory().size() - 1, savedProgram);
+            state.removeProperty (currentProgramProperty, nullptr);
+
+            apvts.replaceState (state);
+        }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

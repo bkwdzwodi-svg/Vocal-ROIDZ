@@ -3,6 +3,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <atomic>
 #include "Parameters.h"
+#include "Presets.h"
 #include "DeEsser.h"
 
 class VocalROIDZProcessor : public juce::AudioProcessor
@@ -26,10 +27,11 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 2.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    // The factory style presets are exposed as host programs so they show up in the DAW too.
+    int getNumPrograms() override { return (int) presets::factory().size(); }
+    int getCurrentProgram() override { return currentProgram; }
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
@@ -57,6 +59,8 @@ private:
     float delayFeedback = 0.3f;
 
     double currentSampleRate = 44100.0;
+    int currentProgram = 0;
+    static constexpr const char* currentProgramProperty = "currentProgram";
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalROIDZProcessor)
 };

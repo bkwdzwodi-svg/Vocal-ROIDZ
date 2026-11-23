@@ -1,0 +1,71 @@
+name: Build plugin
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+          - name: Linux
+            os: ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libgl1-mesa-dev
+
+      - name: Configure (macOS, universal)
+        if: runner.os == 'macOS'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+
+      - name: Configure (Windows and Linux)
+        if: runner.os != 'macOS'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Package Windows VST3
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vst3 = Get-ChildItem -Path build -Recurse -Directory -Filter '*.vst3' | Select-Object -First 1
+          if (-not $vst3) { throw 'No .vst3 bundle was produced' }
+          Compress-Archive -Path $vst3.FullName -DestinationPath 'VocalROIDZ-Windows-VST3.zip'
+
+      - name: Package macOS VST3 and AU
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p package
+          find build -name '*.vst3' -maxdepth 8 -exec cp -R {} package/ \;
+          find build -name '*.component' -maxdepth 8 -exec cp -R {} package/ \;
+          ditto -c -k --sequesterRsrc --keepParent package VocalROIDZ-macOS.zip
+
+      - name: Package Linux VST3
+        if: runner.os == 'Linux'
+        run: |
+          zip -r VocalROIDZ-Linux-VST3.zip $(find build -maxdepth 8 -name '*.vst3')
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VocalROIDZ-${{ matrix.name }}
+          path: VocalROIDZ-*.zip
+          if-no-files-found: error

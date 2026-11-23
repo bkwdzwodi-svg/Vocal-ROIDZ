@@ -3,7 +3,7 @@
 #include "PluginProcessor.h"
 #include "Syringe.h"
 
-class VocalROIDZEditor : public juce::AudioProcessorEditor
+class VocalROIDZEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     explicit VocalROIDZEditor (VocalROIDZProcessor&);
@@ -35,6 +35,8 @@ private:
                      std::initializer_list<KnobSpec> knobs);
     void refreshPresetMenu();
     void promptSavePreset();
+    void timerCallback() override;
+    void showProgramInBox (int index);
 
     VocalROIDZProcessor& proc;
     juce::LookAndFeel_V4 laf;   // declared first so it outlives the components using it
@@ -42,6 +44,7 @@ private:
     juce::ComboBox presetBox;
     juce::TextButton saveButton { "Save Preset" };
     juce::Array<juce::File> userFiles;
+    int shownProgram = -1;   // factory program the preset box is currently showing
     std::vector<std::unique_ptr<Section>> sections;
 
     // the juice rack: in -> comp -> ess -> makeup -> gain -> out

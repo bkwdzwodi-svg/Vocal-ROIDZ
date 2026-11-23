@@ -22,6 +22,8 @@ VocalROIDZEditor::VocalROIDZEditor (VocalROIDZProcessor& p)
     addAndMakeVisible (presetBox);
     addAndMakeVisible (saveButton);
     refreshPresetMenu();
+    showProgramInBox (proc.getCurrentProgram());
+    startTimerHz (10);
 
     presetBox.onChange = [this]
     {
@@ -32,13 +34,20 @@ VocalROIDZEditor::VocalROIDZEditor (VocalROIDZProcessor& p)
             const int idx = id - 1000;
             if (idx < userFiles.size())
                 presets::loadUser (proc.apvts, userFiles[idx]);
+
+            // A user preset isn't a factory program, so keep the box showing it
+            // instead of letting the program sync pull it back.
+            shownProgram = proc.getCurrentProgram();
         }
         else if (id >= 1)
         {
             const auto& list = presets::factory();
             const int idx = id - 1;
             if (idx < (int) list.size())
-                presets::apply (proc.apvts, list[(size_t) idx].params);
+            {
+                proc.setCurrentProgram (idx);
+                shownProgram = idx;
+            }
         }
     };
 
@@ -79,7 +88,23 @@ VocalROIDZEditor::VocalROIDZEditor (VocalROIDZProcessor& p)
 
 VocalROIDZEditor::~VocalROIDZEditor()
 {
+    stopTimer();
     setLookAndFeel (nullptr);
+}
+
+void VocalROIDZEditor::showProgramInBox (int index)
+{
+    shownProgram = index;
+
+    if (index >= 0 && index < (int) presets::factory().size())
+        presetBox.setSelectedId (index + 1, juce::dontSendNotification);
+}
+
+void VocalROIDZEditor::timerCallback()
+{
+    // The host can change programs behind our back; follow it without re-triggering onChange.
+    if (proc.getCurrentProgram() != shownProgram)
+        showProgramInBox (proc.getCurrentProgram());
 }
 
 void VocalROIDZEditor::addSection (const juce::String& title, const char* powerId, int row,
@@ -115,10 +140,19 @@ void VocalROIDZEditor::refreshPresetMenu()
 {
     presetBox.clear (juce::dontSendNotification);
 
-    presetBox.addSectionHeading ("Factory");
+    // Factory presets, grouped by style.
     int id = 1;
+    juce::String category;
     for (const auto& f : presets::factory())
+    {
+        if (category != juce::String (f.category))
+        {
+            category = f.category;
+            presetBox.addSectionHeading (category);
+        }
+
         presetBox.addItem (f.name, id++);
+    }
 
     userFiles = presets::listUser();
     if (! userFiles.isEmpty())
