@@ -28,7 +28,8 @@ public:
         for (auto* f : { &hpf, &lpf, &lowShelf, &highShelf, &peak1, &peak2, &air })
             f->prepare (spec);
 
-        lastHpf = lastLpf = lastLow = lastLowFreq = lastMid = lastMidFreq = lastHigh = lastAir = -9999.0f;
+        lastHpf = lastLpf = lastLow = lastLowFreq = lastMid = lastMidFreq = lastMidQ = -9999.0f;
+        lastHigh = lastHighFreq = lastAir = -9999.0f;
         reset();
     }
 
@@ -41,8 +42,8 @@ public:
     void process (juce::AudioBuffer<float>& buffer,
                   float hpfHz, float lpfHz,
                   float lowGain, float lowFreq,
-                  float midGain, float midFreq,
-                  float highGain, float airGain)
+                  float midGain, float midFreq, float midQ,
+                  float highGain, float highFreq, float airGain)
     {
         using Coeffs = juce::dsp::IIR::Coefficients<float>;
         const auto nyq = (float) (fs * 0.5);
@@ -51,6 +52,8 @@ public:
         lpfHz  = juce::jlimit (500.0f, nyq * 0.9f, lpfHz);
         lowFreq = juce::jlimit (30.0f, nyq * 0.5f, lowFreq);
         midFreq = juce::jlimit (120.0f, nyq * 0.8f, midFreq);
+        midQ = juce::jlimit (0.2f, 10.0f, midQ);
+        highFreq = juce::jlimit (1000.0f, nyq * 0.85f, highFreq);
 
         if (std::abs (hpfHz - lastHpf) > 0.01f)
         {
@@ -71,18 +74,21 @@ public:
             lastLowFreq = lowFreq;
         }
 
-        if (std::abs (midGain - lastMid) > 0.001f || std::abs (midFreq - lastMidFreq) > 0.01f)
+        if (std::abs (midGain - lastMid) > 0.001f || std::abs (midFreq - lastMidFreq) > 0.01f
+            || std::abs (midQ - lastMidQ) > 0.001f)
         {
-            *peak1.state = *Coeffs::makePeakFilter (fs, midFreq, 0.9f, juce::Decibels::decibelsToGain (midGain));
+            *peak1.state = *Coeffs::makePeakFilter (fs, midFreq, midQ, juce::Decibels::decibelsToGain (midGain));
             lastMid = midGain;
             lastMidFreq = midFreq;
+            lastMidQ = midQ;
         }
 
-        if (std::abs (highGain - lastHigh) > 0.001f)
+        if (std::abs (highGain - lastHigh) > 0.001f || std::abs (highFreq - lastHighFreq) > 0.01f)
         {
-            *highShelf.state = *Coeffs::makeHighShelf (fs, juce::jmin (8000.0f, nyq * 0.7f), 0.707f,
+            *highShelf.state = *Coeffs::makeHighShelf (fs, highFreq, 0.707f,
                                                       juce::Decibels::decibelsToGain (highGain));
             lastHigh = highGain;
+            lastHighFreq = highFreq;
         }
 
         if (std::abs (airGain - lastAir) > 0.001f)
@@ -110,7 +116,8 @@ private:
     Duplicator hpf, lpf, lowShelf, highShelf, peak1, peak2, air;
     double fs = 44100.0;
     float lastHpf = -9999.f, lastLpf = -9999.f, lastLow = -9999.f, lastLowFreq = -9999.f;
-    float lastMid = -9999.f, lastMidFreq = -9999.f, lastHigh = -9999.f, lastAir = -9999.f;
+    float lastMid = -9999.f, lastMidFreq = -9999.f, lastMidQ = -9999.f;
+    float lastHigh = -9999.f, lastHighFreq = -9999.f, lastAir = -9999.f;
 };
 
 // ---------------------------------------------------------------------------------------

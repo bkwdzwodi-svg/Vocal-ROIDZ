@@ -160,9 +160,16 @@ public:
 
         preDelay.setDelay (juce::jlimit (0.0f, 200.0f, predelayMs) * 0.001f * (float) fs);
 
+        // The delay line has to be fed as well as tapped: without the push every tap reads
+        // silence and the whole wet path disappears.
         for (int i = 0; i < n; ++i)
+        {
             for (int c = 0; c < ch; ++c)
+            {
+                preDelay.pushSample (c, buffer.getSample (c, i));
                 wet.setSample (c, i, preDelay.popSample (c));
+            }
+        }
 
         juce::dsp::Reverb::Parameters params;
         params.roomSize = 0.35f;

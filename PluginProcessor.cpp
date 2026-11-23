@@ -27,6 +27,7 @@ void VocalROIDZProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) juce::jmax (1, samplesPerBlock), (juce::uint32) 2 };
 
     tuner.prepare (sampleRate, samplesPerBlock, 2);
+    pitchFx.prepare (spec);
     harmony.prepare (sampleRate, samplesPerBlock, 2);
     cleanup.prepare (spec);
     gate.prepare (sampleRate);
@@ -40,6 +41,7 @@ void VocalROIDZProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     outGain.prepare (spec);
     outGain.setRampDurationSeconds (0.02);
 
+    regularStutter.prepare (sampleRate, 2);
     chopScrew.prepare (sampleRate, 2);
     stutter.prepare (sampleRate, 2);
     doubler.prepare (spec);
@@ -154,6 +156,7 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         s.humanize = param (ids::tuneHumanize);
         s.amount = param (ids::tuneAmount);
         s.hard = isOn (ids::tuneHard);
+        s.formant = isOn (ids::tuneFormant);
 
         tuner.process (buffer, s);
 
@@ -182,17 +185,24 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         pushPitch (0.0f, 0.0f);
     }
 
-    // ---------------------------------------------------------------- 07 Harmony Engine
+    // ---------------------------------------------------------------- 02 Pitch FX
+    // Creative pitching is deliberately separate from the tuner so correction can never
+    // transpose the voice by itself.
+    if (isOn (ids::pitchFxOn))
+        pitchFx.process (buffer, param (ids::pitchFxSemis), param (ids::pitchFxFormant),
+                         param (ids::pitchFxMix));
+
+    // ---------------------------------------------------------------- 08 Harmony Engine
     if (isOn (ids::harmOn))
         harmony.process (buffer, param (ids::harmThird), param (ids::harmFifth),
                          param (ids::harmOctUp), param (ids::harmOctDown));
 
-    // ---------------------------------------------------------------- 14 Noise Removal
+    // ---------------------------------------------------------------- 16 Noise Removal
     if (isOn (ids::nrOn))
         cleanup.process (buffer, param (ids::nrHum), param (ids::nrBreath),
                          param (ids::nrClicks), param (ids::nrAmount));
 
-    // ---------------------------------------------------------------- 04 Noise Gate Pro
+    // ---------------------------------------------------------------- 05 Noise Gate Pro
     float gateReduction = 0.0f;
     if (isOn (ids::gateOn))
     {
@@ -201,14 +211,14 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         gateReduction = gate.process (buffer);
     }
 
-    // ---------------------------------------------------------------- 02 Analog EQ
+    // ---------------------------------------------------------------- 03 Analog EQ
     if (isOn (ids::eqOn))
         eq.process (buffer, param (ids::eqHpf), param (ids::eqLpf),
                     param (ids::eqLow), param (ids::eqLowFreq),
-                    param (ids::eqMid), param (ids::eqMidFreq),
-                    param (ids::eqHigh), param (ids::eqAir));
+                    param (ids::eqMid), param (ids::eqMidFreq), param (ids::eqMidQ),
+                    param (ids::eqHigh), param (ids::eqHighFreq), param (ids::eqAir));
 
-    // ---------------------------------------------------------------- 03 Compressor X
+    // ---------------------------------------------------------------- 04 Compressor X
     float compReduction = 0.0f;
     if (isOn (ids::compOn))
     {
@@ -221,12 +231,12 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         makeup.process (ctx);
     }
 
-    // ---------------------------------------------------------------- 05 Saturation Engine
+    // ---------------------------------------------------------------- 06 Saturation Engine
     if (isOn (ids::satOn))
         saturation.process (buffer, (int) param (ids::satMode), param (ids::satDrive),
                             param (ids::satWarmth), param (ids::satDensity), param (ids::satMix));
 
-    // ---------------------------------------------------------------- 13 De-Esser
+    // ---------------------------------------------------------------- 15 De-Esser
     float essReduction = 0.0f;
     if (isOn (ids::deessOn))
     {
@@ -235,46 +245,51 @@ void VocalROIDZProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         essReduction = deesser.getReductionDb();
     }
 
-    // ---------------------------------------------------------------- 11 Auto Chop-N-Screw
+    // ---------------------------------------------------------------- 11 Regular Stutter
+    if (isOn (ids::rstutOn))
+        regularStutter.process (buffer, param (ids::rstutPeriod), param (ids::rstutSlice),
+                                param (ids::rstutReps), param (ids::rstutMix));
+
+    // ---------------------------------------------------------------- 13 Auto Chop-N-Screw
     if (isOn (ids::chopOn))
         chopScrew.process (buffer, (int) param (ids::chopMode), param (ids::chopPitch),
                            param (ids::chopSlow), param (ids::chopDensity), param (ids::chopRepeat),
                            param (ids::chopDrift), param (ids::chopMix));
 
-    // ---------------------------------------------------------------- 10 Hyper Stutter
+    // ---------------------------------------------------------------- 12 Hyper Stutter
     if (isOn (ids::stutOn))
         stutter.process (buffer, (int) param (ids::stutMode), param (ids::stutSlice),
                          param (ids::stutRate), param (ids::stutReverse), param (ids::stutRandom),
                          param (ids::stutPitch), param (ids::stutMix));
 
-    // ---------------------------------------------------------------- 06 Vocal Doubler
+    // ---------------------------------------------------------------- 07 Vocal Doubler
     if (isOn (ids::dblOn))
         doubler.process (buffer, param (ids::dblAmount), param (ids::dblWidth),
                          param (ids::dblHuman), param (ids::dblPitch));
 
-    // ---------------------------------------------------------------- 12 Stereo Imager
+    // ---------------------------------------------------------------- 14 Stereo Imager
     if (isOn (ids::stereoOn))
         imager.process (buffer, param (ids::stereoWidth), param (ids::stereoBass),
                         param (ids::stereoBalance));
 
-    // ---------------------------------------------------------------- 15 Creative FX Lab
+    // ---------------------------------------------------------------- 17 Creative FX Lab
     if (isOn (ids::fxOn))
         creative.process (buffer, (int) param (ids::fxType), param (ids::fxAmount),
                           param (ids::fxTone), param (ids::fxMix));
 
-    // ---------------------------------------------------------------- 09 Delay Lab
+    // ---------------------------------------------------------------- 10 Delay Lab
     if (isOn (ids::dlyOn))
         delayLab.process (buffer, (int) param (ids::dlyMode), param (ids::dlyTime),
                           param (ids::dlyFb), param (ids::dlyTone), param (ids::dlyWidth),
                           param (ids::dlyMix));
 
-    // ---------------------------------------------------------------- 08 Reverb Space
+    // ---------------------------------------------------------------- 09 Reverb Space
     if (isOn (ids::revOn))
         reverbSpace.process (buffer, (int) param (ids::revAlgo), param (ids::revDecay),
                              param (ids::revPredelay), param (ids::revWidth), param (ids::revTone),
                              param (ids::revMod), param (ids::revMix));
 
-    // ---------------------------------------------------------------- 16 Master Finish
+    // ---------------------------------------------------------------- 18 Master Finish
     masterFinish.process (buffer, isOn (ids::masterOn), param (ids::masterLoud),
                           param (ids::masterPunch), param (ids::masterWarmth),
                           param (ids::masterAir), param (ids::masterGlue),

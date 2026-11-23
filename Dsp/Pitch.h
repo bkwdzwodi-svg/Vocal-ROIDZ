@@ -9,8 +9,8 @@
 //
 // Two Hann-windowed read heads half a grain apart, both sliding through a circular buffer.
 // Their windows sum to exactly 1, so the crossfade is click-free while the delay ramps,
-// which is what bends the pitch. Used by the autotune, the harmony engine and the creative
-// pitch effects.
+// which is what bends the pitch. Used by the Pitch FX module, the harmony engine and the
+// creative pitch effects.
 // ---------------------------------------------------------------------------------------
 class GranularPitchShifter
 {
@@ -107,11 +107,188 @@ private:
 };
 
 // ---------------------------------------------------------------------------------------
+// PsolaShifter
+//
+// Pitch-synchronous overlap-add. Grains are two pitch periods long, cut from the input on
+// a pitch-period grid and re-emitted at the corrected period, so the harmonics move but
+// the spectral envelope (the formants, and with them the singer's tone) stays put. A small
+// fixed delay (two of the longest tracked periods) gives every grain its samples without
+// reading into the future.
+// ---------------------------------------------------------------------------------------
+class PsolaShifter
+{
+public:
+    void prepare (double sampleRate, int maxBlock, int numChannels)
+    {
+        fs = sampleRate;
+        channels = juce::jlimit (1, 2, numChannels);
+        maxHalf = (int) std::ceil (sampleRate / 90.0) + 2;   // lowest tracked voice ~90 Hz
+        delay = maxHalf * 2 + 8;
+
+        int size = 1;
+        while (size < delay + juce::jmax (16, maxBlock) + maxHalf * 2 + 16)
+            size <<= 1;
+
+        mask = size - 1;
+        rings.assign ((size_t) channels, std::vector<float> ((size_t) size, 0.0f));
+
+        halfPeriod = (float) (sampleRate / 220.0);
+        writePos = 0;
+        count = 0;
+        numGrains = 0;
+        nextGrain = 0.0;
+        prepared = true;
+    }
+
+    void reset()
+    {
+        for (auto& r : rings)
+            std::fill (r.begin(), r.end(), 0.0f);
+
+        writePos = 0;
+        count = 0;
+        numGrains = 0;
+        nextGrain = 0.0;
+    }
+
+    bool isPrepared() const { return prepared; }
+    int latencySamples() const { return delay; }
+
+    void process (juce::AudioBuffer<float>& buffer, float ratio, float detectedHz)
+    {
+        if (! prepared)
+            return;
+
+        ratio = juce::jlimit (0.5f, 2.0f, ratio);
+
+        const int n = buffer.getNumSamples();
+        const int ch = juce::jmin (buffer.getNumChannels(), channels);
+
+        const float targetHalf = (detectedHz > 45.0f && detectedHz < (float) (fs * 0.45))
+                                     ? (float) (fs / (double) detectedHz)
+                                     : halfPeriod;
+
+        halfPeriod += (juce::jlimit (24.0f, (float) maxHalf, targetHalf) - halfPeriod) * 0.35f;
+
+        const double h = (double) halfPeriod;
+        const double hop = juce::jlimit (h * 0.5, h * 1.98, h / (double) ratio);
+
+        for (int i = 0; i < n; ++i)
+        {
+            for (int c = 0; c < ch; ++c)
+                rings[(size_t) c][(size_t) writePos] = buffer.getSample (c, i);
+
+            const double m = (double) count - (double) delay;
+
+            while (nextGrain <= (double) count - h)
+            {
+                if (numGrains < (int) grains.size())
+                {
+                    Grain g;
+                    g.h = h;
+                    g.oc = nextGrain;
+                    g.ic = std::floor (nextGrain / h) * h;
+                    grains[(size_t) numGrains++] = g;
+                }
+
+                nextGrain += hop;
+            }
+
+            // Drop grains that can no longer touch this sample.
+            int live = 0;
+
+            for (int gi = 0; gi < numGrains; ++gi)
+            {
+                const auto& g = grains[(size_t) gi];
+
+                if (m < g.oc + g.h)
+                {
+                    grains[(size_t) live] = g;
+                    ++live;
+                }
+            }
+
+            numGrains = live;
+
+            float acc[2] = { 0.0f, 0.0f };
+            float norm = 0.0f;
+
+            for (int gi = 0; gi < numGrains; ++gi)
+            {
+                const auto& g = grains[(size_t) gi];
+                const double tau = m - g.oc;
+
+                if (tau <= -g.h || tau >= g.h)
+                    continue;
+
+                const float w = (float) (0.5 + 0.5 * std::cos (juce::MathConstants<double>::pi * tau / g.h));
+
+                for (int c = 0; c < ch; ++c)
+                    acc[c] += w * read (c, (float) (g.ic + tau));
+
+                norm += w;
+            }
+
+            const float inv = norm > 1.0e-4f ? 1.0f / norm : 0.0f;
+
+            for (int c = 0; c < ch; ++c)
+                buffer.setSample (c, i, acc[c] * inv);
+
+            writePos = (writePos + 1) & mask;
+            ++count;
+        }
+    }
+
+private:
+    struct Grain { double oc = 0.0, ic = 0.0, h = 0.0; };
+
+    // Read the input at an absolute sample index. `count` is the index of the sample just
+    // written at `writePos`, and every grain read stays at or behind it.
+    float read (int c, float absPos) const
+    {
+        if (absPos < 0.0f)
+            return 0.0f;
+
+        int i0 = (int) std::floor (absPos);
+        float frac = absPos - (float) i0;
+        int back0 = (int) count - i0;
+
+        if (back0 < 0)
+        {
+            back0 = 0;
+            frac = 0.0f;
+        }
+
+        int back1 = back0 - 1;
+
+        if (back1 < 0)
+            back1 = 0;
+
+        const auto& r = rings[(size_t) c];
+        const float a = r[(size_t) ((writePos - back0) & mask)];
+        const float b = r[(size_t) ((writePos - back1) & mask)];
+
+        return a + (b - a) * frac;
+    }
+
+    double fs = 44100.0;
+    int channels = 2, maxHalf = 551, delay = 1102, mask = 8191, writePos = 0;
+    long long count = 0;
+    float halfPeriod = 200.0f;
+    double nextGrain = 0.0;
+    std::array<Grain, 16> grains {};
+    int numGrains = 0;
+    bool prepared = false;
+    std::vector<std::vector<float>> rings;
+};
+
+// ---------------------------------------------------------------------------------------
 // AutoTune
 //
 // Monophonic pitch tracking (normalised autocorrelation on a decimated window), snapped to
-// the chosen key and scale, then fed to a granular shifter. Retune speed smooths the ratio,
-// humanize leaves small errors alone, correction scales the whole move.
+// the nearest note of the chosen key and scale in the singer's own octave, then corrected
+// by at most a semitone. Formant-preserving PSOLA is the default path, so changing key or
+// scale can never move the voice's register: creative pitch lives in the Pitch FX module.
 // ---------------------------------------------------------------------------------------
 class AutoTune
 {
@@ -121,6 +298,7 @@ public:
         int key = 0, scale = 0;
         float retune = 0.45f, humanize = 0.25f, amount = 0.85f;
         bool hard = false;
+        bool formant = true;
     };
 
     static juce::StringArray keyNames()
@@ -139,6 +317,7 @@ public:
     {
         fs = sampleRate;
         shifter.prepare (sampleRate, maxBlock, numChannels);
+        psola.prepare (sampleRate, maxBlock, numChannels);
 
         const int hopSamples = juce::jmax (64, (int) std::lround (sampleRate * 0.010));  // 10 ms
         hop = hopSamples;
@@ -147,6 +326,7 @@ public:
         hopCounter = 0;
         ratioSmoothed = 1.0f;
         targetRatio = 1.0f;
+        voicedHz = 220.0f;
         detectedHz.store (0.0f);
         targetHz.store (0.0f);
     }
@@ -154,6 +334,7 @@ public:
     void reset()
     {
         shifter.reset();
+        psola.reset();
         std::fill (history.begin(), history.end(), 0.0f);
         writeIdx = 0;
         hopCounter = 0;
@@ -193,7 +374,17 @@ public:
         const float coeff = 1.0f - std::exp (-(float) n / (float) (timeSec * fs));
         ratioSmoothed += (targetRatio - ratioSmoothed) * juce::jlimit (0.0f, 1.0f, coeff);
 
-        shifter.process (buffer, ratioSmoothed);
+        if (s.formant)
+        {
+            if (! psola.isPrepared())
+                return;
+
+            psola.process (buffer, ratioSmoothed, voicedHz);
+        }
+        else
+        {
+            shifter.process (buffer, ratioSmoothed);
+        }
     }
 
 private:
@@ -228,20 +419,23 @@ private:
         return 69.0f + 12.0f * std::log2 (hz / 440.0f);
     }
 
-    // Nearest note in the selected key/scale to an arbitrary MIDI note.
+    // Nearest note in the selected key/scale *to the note being sung*. It searches the
+    // singer's own octave plus one either side, so the nearest note is at most a semitone
+    // away and a key change can never transpose the voice.
     static float snapToScale (float midi, int key, int scale)
     {
         const auto& table = scaleTable (scale);
         const int base = juce::jlimit (0, 11, key);
+        const int octave = (int) std::floor (midi / 12.0f) * 12;
 
         float best = midi;
         float bestDist = 1.0e9f;
 
-        for (int oct = -2; oct <= 2; ++oct)
+        for (int oct = -1; oct <= 1; ++oct)
         {
             for (int deg : table)
             {
-                const float candidate = (float) (base + oct * 12 + deg);
+                const float candidate = (float) (octave + oct * 12 + base + deg);
                 const float dist = std::abs (candidate - midi);
 
                 if (dist < bestDist)
@@ -267,6 +461,8 @@ private:
             return;
         }
 
+        voicedHz = hz;
+
         const float midi = hzToMidi (hz);
         const float target = snapToScale (midi, s.key, s.scale);
         const float centsError = (target - midi) * 100.0f;
@@ -283,7 +479,8 @@ private:
         if (s.hard)
             depth = 1.0f;
 
-        const float semitones = centsError * depth / 100.0f;
+        // Hard guard: the tuner only ever nudges the note. Anything bigger is a Pitch FX job.
+        const float semitones = juce::jlimit (-1.0f, 1.0f, centsError * depth / 100.0f);
         targetRatio = juce::jlimit (0.5f, 2.0f, std::pow (2.0f, semitones / 12.0f));
 
         detectedHz.store (hz);
@@ -373,9 +570,10 @@ private:
     }
 
     GranularPitchShifter shifter;
+    PsolaShifter psola;
     std::vector<float> history;
     int writeIdx = 0, hop = 441, hopCounter = 0;
-    float ratioSmoothed = 1.0f, targetRatio = 1.0f;
+    float ratioSmoothed = 1.0f, targetRatio = 1.0f, voicedHz = 220.0f;
     double fs = 44100.0;
 };
 
@@ -438,4 +636,115 @@ public:
 private:
     std::array<GranularPitchShifter, 4> shifters;
     juce::AudioBuffer<float> scratch;
+};
+
+// ---------------------------------------------------------------------------------------
+// PitchFx: the creative half of the pitch story. Pitch up/down (±2 octaves), a formant
+// shifter that moves the vocal tract resonances without touching the fundamental, and a
+// dry/wet mix. Completely independent of the autotune.
+// ---------------------------------------------------------------------------------------
+class PitchFx
+{
+public:
+    void prepare (const juce::dsp::ProcessSpec& spec)
+    {
+        fs = spec.sampleRate;
+        shifter.prepare (spec.sampleRate, (int) spec.maximumBlockSize,
+                         (int) juce::jlimit (1u, 2u, spec.numChannels));
+
+        scratch.setSize (juce::jlimit (1, 2, (int) spec.numChannels),
+                         juce::jmax (32, (int) spec.maximumBlockSize));
+
+        using Coeffs = juce::dsp::IIR::Coefficients<float>;
+
+        // The duplicator binds its coefficient pointer at prepare time, so seed real
+        // coefficients first and mutate them in place later.
+        band0.state = Coeffs::makePeakFilter (spec.sampleRate, 550.0f, 1.1f, 1.0f);
+        band1.state = Coeffs::makePeakFilter (spec.sampleRate, 1400.0f, 1.1f, 1.0f);
+        band2.state = Coeffs::makePeakFilter (spec.sampleRate, 2800.0f, 1.1f, 1.0f);
+
+        for (auto* f : { &band0, &band1, &band2 })
+            f->prepare (spec);
+
+        lastFormant = 9999.0f;
+        reset();
+    }
+
+    void reset()
+    {
+        shifter.reset();
+
+        for (auto* f : { &band0, &band1, &band2 })
+            f->reset();
+
+        lastFormant = 9999.0f;
+    }
+
+    void process (juce::AudioBuffer<float>& buffer, float semitones, float formantSemitones, float mix)
+    {
+        const int n = buffer.getNumSamples();
+        const int ch = juce::jmin (buffer.getNumChannels(), scratch.getNumChannels());
+
+        if (n <= 0 || ch <= 0 || scratch.getNumSamples() < n)
+            return;
+
+        semitones = juce::jlimit (-24.0f, 24.0f, semitones);
+        formantSemitones = juce::jlimit (-12.0f, 12.0f, formantSemitones);
+
+        const bool shifting = std::abs (semitones) > 0.01f;
+        const bool forming = std::abs (formantSemitones) > 0.01f;
+
+        if (! shifting && ! forming)
+            return;
+
+        for (int c = 0; c < ch; ++c)
+            scratch.copyFrom (c, 0, buffer, c, 0, n);
+
+        if (shifting)
+            shifter.process (scratch, std::pow (2.0f, semitones / 12.0f));
+
+        if (forming)
+        {
+            if (std::abs (formantSemitones - lastFormant) > 0.01f)
+            {
+                using Coeffs = juce::dsp::IIR::Coefficients<float>;
+                const float ratio = std::pow (2.0f, formantSemitones / 12.0f);
+                const float gain = juce::Decibels::decibelsToGain (9.0f * juce::jmin (1.0f, std::abs (formantSemitones) / 12.0f));
+                const float nyq = (float) (fs * 0.5);
+
+                *band0.state = *Coeffs::makePeakFilter (fs, juce::jlimit (80.0f, nyq * 0.8f, 550.0f * ratio), 1.1f, gain);
+                *band1.state = *Coeffs::makePeakFilter (fs, juce::jlimit (80.0f, nyq * 0.8f, 1400.0f * ratio), 1.1f, gain);
+                *band2.state = *Coeffs::makePeakFilter (fs, juce::jlimit (80.0f, nyq * 0.8f, 2800.0f * ratio), 1.1f, gain);
+                lastFormant = formantSemitones;
+            }
+
+            juce::dsp::AudioBlock<float> block (scratch);
+            juce::dsp::ProcessContextReplacing<float> ctx (block);
+
+            band0.process (ctx);
+            band1.process (ctx);
+            band2.process (ctx);
+        }
+
+        const float m = juce::jlimit (0.0f, 1.0f, mix);
+
+        for (int c = 0; c < ch; ++c)
+        {
+            auto* out = buffer.getWritePointer (c);
+            const auto* wet = scratch.getReadPointer (c);
+
+            for (int i = 0; i < n; ++i)
+                out[i] += (wet[i] - out[i]) * m;
+        }
+    }
+
+private:
+    using Duplicator = juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>,
+                                                      juce::dsp::IIR::Coefficients<float>>;
+
+    GranularPitchShifter shifter;
+    Duplicator band0, band1, band2;
+    juce::AudioBuffer<float> scratch;
+    double fs = 44100.0;
+    float lastFormant = 9999.0f;
 };

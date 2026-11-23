@@ -50,6 +50,8 @@ public:
             case modules::ScopeKind::sibilance:  drawSibilance (g, area); break;
             case modules::ScopeKind::cleanup:    drawCleanup (g, area); break;
             case modules::ScopeKind::fx:         drawFx (g, area); break;
+            case modules::ScopeKind::pitchfx:    drawPitchFx (g, area); break;
+            case modules::ScopeKind::stutter:    drawRegularStutter (g, area); break;
             default:                             drawLoudness (g, area); break;
         }
     }
@@ -628,6 +630,114 @@ private:
         static const char* names[] = { "REVERSE FX", "TAPE STOP", "VINYL STOP", "MEGAPHONE",
                                        "TELEPHONE", "ROBOT VOICE", "BIT CRUSHER", "GRANULAR ECHO" };
         label (g, area, names[juce::jlimit (0, 7, type)], false);
+    }
+
+    void drawPitchFx (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const float semis = pv (ids::pitchFxSemis);
+        const float formant = pv (ids::pitchFxFormant);
+        const float mix = pv (ids::pitchFxMix);
+
+        auto yFor = [&] (float st) { return area.getCentreY() - (st / 24.0f) * area.getHeight() * 0.44f; };
+
+        // Register ladder.
+        g.setFont (ui::font (9.0f));
+
+        for (int st = -24; st <= 24; st += 12)
+        {
+            const float y = yFor ((float) st);
+            g.setColour (juce::Colours::white.withAlpha (st == 0 ? 0.20f : 0.07f));
+            g.drawHorizontalLine ((int) y, area.getX(), area.getRight());
+            g.setColour (ui::dim.withAlpha (0.8f));
+            g.drawText ((st > 0 ? "+" : "") + juce::String (st),
+                        juce::Rectangle<int> ((int) area.getX(), (int) y - 7, 26, 14),
+                        juce::Justification::centredLeft, false);
+        }
+
+        auto ladder = area.withTrimmedLeft (32.0f);
+        const float centre = ladder.getCentreX();
+        const float y0 = yFor (0.0f);
+        const float y1 = yFor (semis);
+
+        // Pitch offset pill.
+        g.setColour (accent.withAlpha (0.20f));
+        g.fillRoundedRectangle (juce::Rectangle<float> (centre - 34.0f, juce::jmin (y0, y1), 68.0f, std::abs (y1 - y0) + 1.0f), 6.0f);
+        g.setColour (accent);
+        g.fillRoundedRectangle (centre - 34.0f, y1 - 2.0f, 68.0f, 4.0f, 2.0f);
+        g.fillEllipse (centre - 4.0f, y1 - 4.0f, 8.0f, 8.0f);
+
+        // Formant marker: independent of the pitch, which is the whole point of the module.
+        const float yf = yFor (formant);
+        juce::Path diamond;
+        diamond.startNewSubPath (centre + 54.0f, yf - 7.0f);
+        diamond.lineTo (centre + 61.0f, yf);
+        diamond.lineTo (centre + 54.0f, yf + 7.0f);
+        diamond.lineTo (centre + 47.0f, yf);
+        diamond.closeSubPath();
+        g.setColour (juce::Colour (0xffc65cff));
+        g.fillPath (diamond);
+
+        // Harmonic stack, moved by the pitch and coloured by the formant.
+        for (int h = 1; h <= 6; ++h)
+        {
+            const float y = area.getBottom() - area.getHeight() * (float) h / 7.0f;
+            const float shift = (semis / 24.0f) * area.getHeight() * 0.10f * (float) h / 6.0f;
+            g.setColour (accent.withAlpha (0.10f + mix * 0.12f));
+            g.drawHorizontalLine ((int) (y - shift), ladder.getX(), ladder.getRight());
+        }
+
+        g.setFont (ui::font (12.0f, true));
+        g.setColour (ui::text);
+        g.drawText ((semis >= 0.0f ? "+" : "") + juce::String (semis, 1) + " st",
+                    area.toNearestInt().removeFromBottom (20), juce::Justification::centredLeft, false);
+        g.setFont (ui::font (11.0f));
+        g.setColour (ui::dim);
+        g.drawText ((formant >= 0.0f ? "FORMANT +" : "FORMANT ") + juce::String (formant, 1) + " st",
+                    area.toNearestInt().removeFromBottom (20), juce::Justification::centredRight, false);
+    }
+
+    void drawRegularStutter (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const float period = juce::jmax (100.0f, pv (ids::rstutPeriod));
+        const float slice = juce::jmax (20.0f, pv (ids::rstutSlice));
+        const float reps = juce::jmax (1.0f, pv (ids::rstutReps));
+
+        auto bar = area.reduced (0.0f, 18.0f);
+        const float cycle = period;
+        const float sliceW = juce::jlimit (2.0f, bar.getWidth(), bar.getWidth() * slice / cycle);
+        const float startX = bar.getX();
+
+        // The trigger window.
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.fillRoundedRectangle (bar, 4.0f);
+
+        float x = startX;
+
+        for (int i = 0; i < (int) reps; ++i)
+        {
+            g.setColour (accent.withAlpha (0.55f - 0.04f * (float) i));
+            g.fillRoundedRectangle (x + 1.0f, bar.getY() + 4.0f, juce::jmax (2.0f, sliceW - 2.0f),
+                                    bar.getHeight() - 8.0f, 3.0f);
+            x += sliceW;
+        }
+
+        const float phase = std::fmod ((float) nowMs() * 0.001f, period / 1000.0f) / (period / 1000.0f);
+        const float px = bar.getX() + phase * bar.getWidth();
+
+        g.setColour (juce::Colours::white.withAlpha (0.55f));
+        g.drawVerticalLine ((int) px, bar.getY(), bar.getBottom());
+        g.setColour (accent);
+        g.fillEllipse (px - 3.0f, bar.getY() - 3.0f, 6.0f, 6.0f);
+
+        g.setFont (ui::font (11.0f));
+        g.setColour (ui::dim);
+        g.drawText (juce::String (period / 1000.0f, 2) + " s cycle  /  " + juce::String (slice, 0) + " ms slice  /  "
+                        + juce::String (reps, 0) + " repeats",
+                    area.toNearestInt().removeFromBottom (16), juce::Justification::centredLeft, false);
+
+        g.setFont (ui::font (11.0f, true));
+        g.setColour (accent);
+        g.drawText ("REGULAR", area.toNearestInt().removeFromBottom (16), juce::Justification::centredRight, false);
     }
 
     void drawLoudness (juce::Graphics& g, juce::Rectangle<float> area)

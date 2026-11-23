@@ -80,6 +80,7 @@ private:
 
     // ---------------------------------------------------------------- modules 01 - 16
     AutoTune          tuner;
+    PitchFx           pitchFx;
     HarmonyEngine     harmony;
     NoiseCleanup      cleanup;
     NoiseGate         gate;
@@ -88,6 +89,7 @@ private:
     juce::dsp::Gain<float> makeup, outGain;
     SaturationEngine  saturation;
     DeEsser           deesser;
+    RegularStutter    regularStutter;
     ChopNScrew        chopScrew;
     HyperStutter      stutter;
     VocalDoubler      doubler;

@@ -508,3 +508,106 @@ private:
     int holdCounter = 0, retrigger = 0;
     float holdValue[2] = { 0.0f, 0.0f };
 };
+
+// ---------------------------------------------------------------------------------------
+// RegularStutter: the clean one. Every trigger period it grabs a short slice and repeats it
+// a fixed number of times, then hands the vocal straight back. No randomness, no pitch
+// moves - that is what Hyper Stutter is for.
+// ---------------------------------------------------------------------------------------
+class RegularStutter
+{
+public:
+    void prepare (double sampleRate, int numChannels)
+    {
+        fs = sampleRate;
+        ring.prepare (sampleRate, 3.0, numChannels);
+        reset();
+    }
+
+    void reset()
+    {
+        ring.clear();
+        idleCounter = 0;
+        remaining = 0;
+        sliceStart = 0.0f;
+        sliceLen = 0.0f;
+        playPos = 0.0f;
+        mixSmoothed = 0.0f;
+        playing = false;
+    }
+
+    void process (juce::AudioBuffer<float>& buffer, float periodMs, float sliceMs,
+                  float repeats, float mix)
+    {
+        if (! ring.ready())
+            return;
+
+        const int n = buffer.getNumSamples();
+        const int ch = juce::jmin (buffer.getNumChannels(), 2);
+
+        const float periodSamples = juce::jmax (256.0f, periodMs * 0.001f * (float) fs);
+        const float slice = juce::jlimit (64.0f, (float) (ring.mask / 3), sliceMs * 0.001f * (float) fs);
+        const int reps = juce::jlimit (1, 8, (int) std::lround (repeats));
+        const float targetMix = juce::jlimit (0.0f, 1.0f, mix);
+
+        for (int i = 0; i < n; ++i)
+        {
+            float dry[2] = { 0.0f, 0.0f };
+
+            for (int c = 0; c < ch; ++c)
+            {
+                dry[c] = buffer.getSample (c, i);
+                ring.write (c, dry[c]);
+            }
+
+            float target = 0.0f;
+
+            if (! playing)
+            {
+                if (idleCounter >= (int) periodSamples)
+                {
+                    idleCounter = 0;
+                    playing = true;
+                    sliceLen = slice;
+                    sliceStart = (float) ring.now() - 1.0f - slice;
+                    playPos = sliceStart;
+                    remaining = (int) (slice * (float) reps);
+                }
+                else
+                {
+                    ++idleCounter;
+                }
+            }
+
+            ring.advance();
+
+            if (playing)
+            {
+                target = targetMix;
+                playPos += 1.0f;
+
+                if (playPos >= sliceStart + sliceLen)
+                    playPos = sliceStart;
+
+                if (--remaining <= 0)
+                    playing = false;
+            }
+
+            // ~6 ms fade in and out of the stutter keeps the transitions musical.
+            mixSmoothed += (target - mixSmoothed) * 0.0035f;
+
+            for (int c = 0; c < ch; ++c)
+            {
+                const float wet = ring.read (c, playPos);
+                buffer.setSample (c, i, dry[c] * (1.0f - mixSmoothed) + wet * mixSmoothed);
+            }
+        }
+    }
+
+private:
+    StereoRing ring;
+    double fs = 44100.0;
+    int idleCounter = 0, remaining = 0;
+    float sliceStart = 0.0f, sliceLen = 0.0f, playPos = 0.0f, mixSmoothed = 0.0f;
+    bool playing = false;
+};
